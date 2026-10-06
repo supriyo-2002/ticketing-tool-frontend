@@ -1,11 +1,7 @@
-import React from 'react'
+import Login from "./pages/loginPage.jsx";
 
 function App() {
-  return (
-   <h1 className="text-3xl font-bold underline text-red-500">
-  Tailwind is working
-</h1>
-  )
+  return <Login />;
 }
 
-export default App
+export default App;
