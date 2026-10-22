@@ -1,4 +1,3 @@
-
 export default function Projects() {
   const projects = [
     { name: "Storefront Web", description: "Website and checkout experience", status: "Active" },
