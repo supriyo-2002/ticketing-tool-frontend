@@ -12,6 +12,7 @@ import Teams from "./pages/teamsPage.jsx";
 import Preferences from "./pages/preferencesPage.jsx";
 import AcceptInvite from "./pages/acceptInvitePage.jsx";
 
+
 function App() {
   return (
     <BrowserRouter>
