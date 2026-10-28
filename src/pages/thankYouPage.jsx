@@ -1,9 +1,19 @@
+
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export default function ThankYouPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const name = location.state?.name; // optional, passed from the register page
+  const name = location.state?.name;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      navigate("/", { replace: true });
+    }, 1000); // Redirect after 2 seconds
+
+    return () => clearTimeout(timer);
+  }, [navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a1020] px-4 py-6 text-[#f1f5ff]">
@@ -27,17 +37,13 @@ export default function ThankYouPage() {
         <h1 className="mb-3 text-2xl font-semibold sm:text-3xl">
           {name ? `Thank you, ${name}` : "Thank you for registering"}
         </h1>
-        <p className="mb-8 text-[#9aa8d6]">
-          Your account has been created. You can now log in and start using
-          Relay.
+
+        <p className="mb-4 text-[#9aa8d6]">
+          Your email has been confirmed successfully. Thank you for registering
+          with Relay.
         </p>
 
-        <button
-  onClick={() => navigate("/")}
-  className="w-full rounded-2xl bg-[#4a7cff] py-3.5 text-base font-bold text-white transition hover:brightness-110 sm:py-4 sm:text-lg"
->
-  Go back to login
-</button>
+        
       </div>
     </div>
   );

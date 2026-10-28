@@ -14,6 +14,7 @@ import Preferences from "./pages/preferencesPage.jsx";
 import AcceptInvite from "./pages/acceptInvitePage.jsx";
 import InvitesPage from "./pages/invitesPage";
 
+// App component
 function App() {
   return (
     <BrowserRouter>
