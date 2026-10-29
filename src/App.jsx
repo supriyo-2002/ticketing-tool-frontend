@@ -7,7 +7,7 @@ import ThankYouPage from "./pages/thankYouPage";
 import Dashboard from "./pages/dashboardPage.jsx";
 
 import DashboardLayout from "./components/DashboardLayout.jsx";
-import Projects from "./pages/projectsPage.jsx";
+import Projects from "./pages/projectsPage.jsx"; 
 import Tickets from "./pages/ticketsPage.jsx";
 import Teams from "./pages/teamsPage.jsx";
 import Preferences from "./pages/preferencesPage.jsx";
