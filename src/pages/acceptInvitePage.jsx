@@ -1,418 +1,414 @@
 
-// import { useState } from "react";
-// import { Link } from "react-router-dom";
-
-// export default function AcceptInvite() {
-//   const [formData, setFormData] = useState({
-//     fullName: "",
-//     email: "",
-//     password: "",
-//     confirmPassword: "",
-//   });
-
-//   const [error, setError] = useState("");
-//   const [success, setSuccess] = useState("");
-
-//   const handleChange = (event) => {
-//     const { name, value } = event.target;
-
-//     setFormData((previous) => ({
-//       ...previous,
-//       [name]: value,
-//     }));
-
-//     setError("");
-//     setSuccess("");
-//   };
-
-//   const handleSubmit = (event) => {
-//     event.preventDefault();
-//     setError("");
-//     setSuccess("");
-
-//     if (formData.fullName.trim().length < 2) {
-//       setError("Please enter your full name.");
-//       return;
-//     }
-
-//     if (!formData.email.trim()) {
-//       setError("Please enter your email address.");
-//       return;
-//     }
-
-//     if (formData.password.length < 8) {
-//       setError("Your password must contain at least 8 characters.");
-//       return;
-//     }
-
-//     if (formData.password !== formData.confirmPassword) {
-//       setError("Your passwords do not match.");
-//       return;
-//     }
-
-//     setSuccess(
-//       "Your details are valid. Invitation verification and account creation will be connected to the backend next."
-//     );
-//   };
-
-//   return (
-//     <div className="flex min-h-screen items-center justify-center bg-[#080d18] px-4 py-10 text-white">
-//       <div className="w-full max-w-md">
-//         {/* Logo */}
-//         <Link
-//           to="/"
-//           className="mb-8 flex items-center justify-center gap-3"
-//         >
-//           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#6482ff] to-[#4558df] text-2xl font-bold">
-//             ✓
-//           </span>
-
-//           <span className="text-2xl font-bold tracking-tight">
-//             Relay
-//           </span>
-//         </Link>
-
-//         {/* Form card */}
-//         <div className="rounded-2xl border border-[#202943] bg-[#0c1427] p-6 shadow-2xl sm:p-8">
-//           <div className="mb-7 text-center">
-//             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 text-2xl text-blue-300">
-//               ✉
-//             </div>
-
-//             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">
-//               Team Invitation
-//             </p>
-
-//             <h1 className="mt-3 text-2xl font-bold">
-//               Accept your invitation
-//             </h1>
-
-//             <p className="mt-2 text-sm leading-6 text-slate-400">
-//               Complete your details to get started with your
-//               workspace.
-//             </p>
-//           </div>
-
-//           <form onSubmit={handleSubmit} className="space-y-5">
-//             <div>
-//               <label
-//                 htmlFor="fullName"
-//                 className="mb-2 block text-sm font-medium text-slate-300"
-//               >
-//                 Full Name
-//               </label>
-
-//               <input
-//                 id="fullName"
-//                 name="fullName"
-//                 type="text"
-//                 autoComplete="name"
-//                 value={formData.fullName}
-//                 onChange={handleChange}
-//                 placeholder="Enter your full name"
-//                 className="w-full rounded-lg border border-[#293653] bg-[#080d18] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-//                 required
-//               />
-//             </div>
-
-//             <div>
-//               <label
-//                 htmlFor="email"
-//                 className="mb-2 block text-sm font-medium text-slate-300"
-//               >
-//                 Work Email
-//               </label>
-
-//               <input
-//                 id="email"
-//                 name="email"
-//                 type="email"
-//                 autoComplete="email"
-//                 value={formData.email}
-//                 onChange={handleChange}
-//                 placeholder="you@company.com"
-//                 className="w-full rounded-lg border border-[#293653] bg-[#080d18] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-//                 required
-//               />
-//             </div>
-
-//             <div>
-//               <label
-//                 htmlFor="password"
-//                 className="mb-2 block text-sm font-medium text-slate-300"
-//               >
-//                 Create Password
-//               </label>
-
-//               <input
-//                 id="password"
-//                 name="password"
-//                 type="password"
-//                 autoComplete="new-password"
-//                 value={formData.password}
-//                 onChange={handleChange}
-//                 placeholder="Minimum 8 characters"
-//                 minLength={8}
-//                 className="w-full rounded-lg border border-[#293653] bg-[#080d18] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-//                 required
-//               />
-//             </div>
-
-//             <div>
-//               <label
-//                 htmlFor="confirmPassword"
-//                 className="mb-2 block text-sm font-medium text-slate-300"
-//               >
-//                 Confirm Password
-//               </label>
-
-//               <input
-//                 id="confirmPassword"
-//                 name="confirmPassword"
-//                 type="password"
-//                 autoComplete="new-password"
-//                 value={formData.confirmPassword}
-//                 onChange={handleChange}
-//                 placeholder="Re-enter your password"
-//                 className="w-full rounded-lg border border-[#293653] bg-[#080d18] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-//                 required
-//               />
-//             </div>
-
-//             {error && (
-//               <p
-//                 role="alert"
-//                 className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"
-//               >
-//                 {error}
-//               </p>
-//             )}
-
-//             {success && (
-//               <p
-//                 role="status"
-//                 className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm leading-6 text-emerald-300"
-//               >
-//                 {success}
-//               </p>
-//             )}
-
-//             <button
-//               type="submit"
-//               className="w-full rounded-lg bg-gradient-to-r from-[#6482ff] to-[#4558df] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-[#0c1427]"
-//             >
-//               Accept Invitation
-//             </button>
-//           </form>
-
-//           <p className="mt-6 text-center text-sm text-slate-400">
-//             Already have an account?{" "}
-//             <Link
-//               to="/"
-//               className="font-semibold text-blue-400 hover:text-blue-300"
-//             >
-//               Sign in
-//             </Link>
-//           </p>
-//         </div>
-
-//         <p className="mt-6 text-center text-xs text-slate-600">
-//           Secure access to your workspace
-//         </p>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-// Change this to your backend URL
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  ""
+).replace(/\/+$/, "");
 
-const inputClass =
-  "w-full rounded-2xl border border-[#1a2547] bg-[#0f1a35] px-4 py-3.5 text-base text-[#f1f5ff] outline-none placeholder:text-[#4f6190] focus:border-[#4a7cff] disabled:opacity-60 sm:px-5 sm:py-4 sm:text-lg";
-const labelClass = "font-semibold text-[#9aa8d6]";
-const cardClass =
-  "w-full max-w-md rounded-2xl border border-[#1a2547] bg-[#0d1730] p-5 sm:rounded-3xl sm:p-8";
-const buttonClass =
-  "w-full rounded-2xl bg-[#4a7cff] py-3.5 text-base font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:py-4 sm:text-lg";
+const inputClasses =
+  "w-full rounded-lg border border-[#293653] bg-[#080d18] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
 
-function Screen({ children }) {
+const labelClasses = "text-xs font-medium text-slate-300";
+
+// Read invitation information from the URL.
+function readInviteLink() {
+  const hashParams = new URLSearchParams(
+    window.location.hash.replace(/^#/, "")
+  );
+  const queryParams = new URLSearchParams(window.location.search);
+
+  const get = (key) => hashParams.get(key) || queryParams.get(key);
+
+  return {
+    accessToken: get("access_token"),
+    token: get("token"),
+    tokenHash: get("token_hash"),
+    error:
+      get("error_description") ||
+      get("error_code") ||
+      get("error"),
+    type: get("type"),
+  };
+}
+
+// Decode the email from a JWT, if one is provided.
+// The backend must still validate the token.
+function getEmailFromToken(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return "";
+
+    const payload = parts[1]
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+    const padded = payload.padEnd(
+      payload.length + ((4 - (payload.length % 4)) % 4),
+      "="
+    );
+
+    const decoded = atob(padded);
+    const bytes = Uint8Array.from(
+      decoded,
+      (character) => character.charCodeAt(0)
+    );
+
+    return JSON.parse(new TextDecoder().decode(bytes)).email || "";
+  } catch {
+    return "";
+  }
+}
+
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  hint,
+}) {
+  const [visible, setVisible] = useState(false);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a1020] px-4 py-6 text-[#f1f5ff]">
-      {children}
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <label htmlFor={id} className={labelClasses}>
+          {label}
+        </label>
+
+        {hint && (
+          <span className={`text-[11px] ${hint.color}`}>
+            {hint.text}
+          </span>
+        )}
+      </div>
+
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          autoComplete="new-password"
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`${inputClasses} pr-14`}
+          minLength={8}
+          required
+        />
+
+        <button
+          type="button"
+          onClick={() => setVisible((current) => !current)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-slate-400 hover:text-white"
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          {visible ? "Hide" : "Show"}
+        </button>
+      </div>
     </div>
   );
 }
 
-export default function AcceptInvitePage() {
-  const { token } = useParams(); // route: /accept-invite/:token
+export default function AcceptInvite() {
   const navigate = useNavigate();
 
-  const [invite, setInvite] = useState(null); // { email, role, invitedBy }
-  const [loading, setLoading] = useState(true);
-  const [invalid, setInvalid] = useState("");
-  const [name, setName] = useState("");
+  const [token, setToken] = useState("");
+  const [tokenHash, setTokenHash] = useState("");
+  const [tokenType, setTokenType] = useState("");
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const [success, setSuccess] = useState("");
 
-  // Check the invite link when the page opens
   useEffect(() => {
-    const checkInvite = async () => {
-      try {
-        const res = await fetch(`${API}/invites/token/${token}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Invalid invitation");
-        setInvite(data);
-      } catch (err) {
-        setInvalid(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkInvite();
-  }, [token]);
+    const root = document.documentElement;
+    const desktop = window.matchMedia("(min-width: 1024px)");
 
-  const handleAccept = async (e) => {
-    e.preventDefault();
+    const applySize = () => {
+      root.style.fontSize = desktop.matches ? "80%" : "";
+    };
+
+    applySize();
+    desktop.addEventListener("change", applySize);
+
+    return () => {
+      desktop.removeEventListener("change", applySize);
+      root.style.fontSize = "";
+    };
+  }, []);
+
+  useEffect(() => {
+    const invite = readInviteLink();
+
+    if (invite.error) {
+      const message = invite.error.replace(/\+/g, " ");
+
+      setError(
+        /expired|otp/i.test(message)
+          ? "This invitation link has expired or has already been used. Please request a new invitation."
+          : decodeURIComponent(message)
+      );
+      return;
+    }
+
+    const accessToken = invite.accessToken || invite.token || "";
+
+    setToken(accessToken);
+    setTokenHash(invite.tokenHash || "");
+    setTokenType(invite.type || "");
+    setEmail(getEmailFromToken(accessToken));
+
+    if (!accessToken && !invite.tokenHash) {
+      setError(
+        "No invitation credential was found in this link. Please open a valid invitation email or request a new one."
+      );
+    }
+  }, []);
+
+  const matchHint = confirmPassword
+    ? password === confirmPassword
+      ? { text: "Passwords match", color: "text-emerald-400" }
+      : { text: "Do not match", color: "text-rose-400" }
+    : null;
+
+  const canSubmit =
+    !loading &&
+    fullName.trim().length >= 2 &&
+    password.length >= 8 &&
+    password === confirmPassword;
+
+  async function handleSubmit(event) {
+    event.preventDefault();
     setError("");
+    setSuccess("");
+
+    if (!API) {
+      setError("API URL is missing. Check your frontend .env file.");
+      return;
+    }
+
+    if (fullName.trim().length < 2) {
+      setError("Please enter your full name.");
+      return;
+    }
 
     if (password.length < 8) {
-      return setError("Password must be at least 8 characters");
-    }
-    if (password !== confirm) {
-      return setError("Passwords do not match");
+      setError("Your password must contain at least 8 characters.");
+      return;
     }
 
-    setSubmitting(true);
+    if (password !== confirmPassword) {
+      setError("Your passwords do not match.");
+      return;
+    }
+
+    if (!token && !tokenHash) {
+      setError(
+        "Your invitation credential is missing. Please request a new invitation email."
+      );
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const res = await fetch(`${API}/invites/token/${token}/accept`, {
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      };
+
+      const body = {
+        name: fullName.trim(),
+        password,
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // These fields only work if the backend supports token_hash/type.
+      if (tokenHash) body.token_hash = tokenHash;
+      if (tokenType) body.type = tokenType;
+
+      const response = await fetch(`${API}/api/auth/accept-invite`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, password }),
+        headers,
+        body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not accept invitation");
-      setDone(true);
-      setTimeout(() => navigate("/"), 1800);
+
+      const responseText = await response.text();
+      let data = {};
+
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error(
+            `The server returned an invalid response (HTTP ${response.status}).`
+          );
+        }
+      }
+
+      if (!response.ok || data.success === false) {
+        throw new Error(
+          data.message ||
+            data.error ||
+            `Could not accept the invitation (HTTP ${response.status}).`
+        );
+      }
+
+      setSuccess(data.message || "Invitation accepted successfully.");
+      setPassword("");
+      setConfirmPassword("");
+
+      window.setTimeout(() => navigate("/"), 2500);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message || "Something went wrong. Please try again."
+      );
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  };
-
-  if (loading) {
-    return (
-      <Screen>
-        <div className={`${cardClass} text-[#9aa8d6]`}>
-          Checking your invitation...
-        </div>
-      </Screen>
-    );
-  }
-
-  if (invalid) {
-    return (
-      <Screen>
-        <div className={cardClass}>
-          <h2 className="mb-2 text-xl font-semibold sm:text-2xl">
-            This invitation can't be used
-          </h2>
-          <p className="mb-6 text-[#9aa8d6]">
-            {invalid}. Ask your admin to send you a new invitation.
-          </p>
-          <button className={buttonClass} onClick={() => navigate("/")}>
-            Go to login
-          </button>
-        </div>
-      </Screen>
-    );
-  }
-
-  if (done) {
-    return (
-      <Screen>
-        <div className={cardClass}>
-          <h2 className="mb-4 text-xl font-semibold sm:text-2xl">You're in</h2>
-          <div className="rounded-xl border border-emerald-400 px-4 py-3 text-sm text-emerald-400">
-            Your account is ready. Redirecting to login...
-          </div>
-        </div>
-      </Screen>
-    );
   }
 
   return (
-    <Screen>
-      <form onSubmit={handleAccept} className={cardClass}>
-        <h2 className="mb-2 text-xl font-semibold sm:text-2xl">
-          Accept invitation
-        </h2>
-        <p className="mb-6 text-[#9aa8d6]">
-          {invite.invitedBy ? `${invite.invitedBy} invited you` : "You're invited"}{" "}
-          to join as {invite.role}.
-        </p>
+    <div className="flex min-h-screen items-center justify-center bg-[#080d18] px-4 py-4 text-white">
+      <div className="w-full max-w-lg">
+        <Link
+          to="/"
+          className="mb-4 flex items-center justify-center gap-2.5"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6482ff] to-[#4558df] text-lg font-bold">
+            ✓
+          </span>
+          <span className="text-xl font-bold tracking-tight">
+            Relay
+          </span>
+        </Link>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-rose-400 px-4 py-3 text-sm text-rose-400">
-            {error}
+        <div className="rounded-2xl border border-[#202943] bg-[#0c1427] p-5 shadow-2xl">
+          <div className="mb-4 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-400">
+              ✉ Team Invitation
+            </p>
+            <h1 className="mt-1.5 text-xl font-bold">
+              Accept your invitation
+            </h1>
+            <p className="mt-1 text-xs text-slate-400">
+              Complete your details to get started with your workspace.
+            </p>
           </div>
-        )}
 
-        <div className="mb-4 flex flex-col gap-2">
-          <label htmlFor="email" className={labelClass}>Work email</label>
-          <input id="email" type="email" value={invite.email} disabled className={inputClass} />
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              <div className={email ? "" : "sm:col-span-2"}>
+                <label
+                  htmlFor="fullName"
+                  className={`${labelClasses} mb-1.5 block`}
+                >
+                  Full Name
+                </label>
+                <input
+                  id="fullName"
+                  type="text"
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(event) => {
+                    setFullName(event.target.value);
+                    setError("");
+                  }}
+                  placeholder="Enter your full name"
+                  className={inputClasses}
+                  required
+                />
+              </div>
+
+              {email && (
+                <div>
+                  <label
+                    htmlFor="email"
+                    className={`${labelClasses} mb-1.5 block`}
+                  >
+                    Work Email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    readOnly
+                    className="w-full cursor-not-allowed rounded-lg border border-[#293653] bg-[#080d18] px-3.5 py-2.5 text-sm text-slate-400 outline-none"
+                  />
+                </div>
+              )}
+
+              <PasswordField
+                id="password"
+                label="Create Password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setError("");
+                }}
+                placeholder="Min. 8 characters"
+              />
+
+              <PasswordField
+                id="confirmPassword"
+                label="Confirm Password"
+                value={confirmPassword}
+                onChange={(event) => {
+                  setConfirmPassword(event.target.value);
+                  setError("");
+                }}
+                placeholder="Re-enter password"
+                hint={matchHint}
+              />
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+              >
+                {error}
+              </p>
+            )}
+
+            {success && (
+              <p
+                role="status"
+                className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300"
+              >
+                {success}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-gradient-to-r from-[#6482ff] to-[#4558df] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-[#0c1427] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Accepting..." : "Accept Invitation"}
+            </button>
+          </form>
+
+          <p className="mt-3.5 text-center text-xs text-slate-400">
+            Already have an account?{" "}
+            <Link
+              to="/"
+              className="font-semibold text-blue-400 hover:text-blue-300"
+            >
+              Sign in
+            </Link>
+          </p>
         </div>
-
-        <div className="mb-4 flex flex-col gap-2">
-          <label htmlFor="name" className={labelClass}>Full name</label>
-          <input
-            id="name"
-            required
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-
-        <div className="mb-4 flex flex-col gap-2">
-          <label htmlFor="password" className={labelClass}>Password</label>
-          <input
-            id="password"
-            type="password"
-            required
-            placeholder="At least 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-
-        <div className="mb-6 flex flex-col gap-2">
-          <label htmlFor="confirm" className={labelClass}>Confirm password</label>
-          <input
-            id="confirm"
-            type="password"
-            required
-            placeholder="Repeat your password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-
-        <button disabled={submitting} className={buttonClass}>
-          {submitting ? "Creating account..." : "Accept invitation"}
-        </button>
-      </form>
-    </Screen>
+      </div>
+    </div>
   );
 }
