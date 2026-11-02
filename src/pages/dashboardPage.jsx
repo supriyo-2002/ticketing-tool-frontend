@@ -1,3 +1,487 @@
+
+
+// import { useState } from "react";
+// import { Link } from "react-router-dom";
+
+// const tickets = [
+//   {
+//     id: "TCK-1042",
+//     title: "Checkout page fails on Safari for logged-out users",
+//     project: "Storefront Web",
+//     status: "In progress",
+//     priority: "High",
+//     assignee: "Dev Kapoor",
+//     initials: "DK",
+//     due: "Sep 23",
+//     color: "bg-amber-400",
+//   },
+//   {
+//     id: "TCK-1039",
+//     title: "Warehouse scan gun loses connection intermittently",
+//     project: "Warehouse Portal",
+//     status: "Open",
+//     priority: "Critical",
+//     assignee: "Rosa Silva",
+//     initials: "RS",
+//     due: "Sep 22",
+//     color: "bg-emerald-400",
+//   },
+//   {
+//     id: "TCK-1035",
+//     title: "Add bulk CSV export for shipment history",
+//     project: "Warehouse Portal",
+//     status: "Open",
+//     priority: "Medium",
+//     assignee: "Mara Patel",
+//     initials: "MP",
+//     due: "Sep 27",
+//     color: "bg-sky-400",
+//   },
+//   {
+//     id: "TCK-1031",
+//     title: "Dark mode toggle resets on page refresh",
+//     project: "Mobile App",
+//     status: "Resolved",
+//     priority: "Low",
+//     assignee: "You",
+//     initials: "YO",
+//     due: "Sep 20",
+//     color: "bg-blue-500",
+//   },
+//   {
+//     id: "TCK-1028",
+//     title: "Push notification tokens not refreshing after login",
+//     project: "Mobile App",
+//     status: "In progress",
+//     priority: "High",
+//     assignee: "Dev Kapoor",
+//     initials: "DK",
+//     due: "Sep 24",
+//     color: "bg-amber-400",
+//   },
+// ];
+
+// const stats = [
+//   {
+//     label: "Open tickets",
+//     value: "23",
+//     note: "↑ 4 since yesterday",
+//     noteColor: "text-emerald-400",
+//   },
+//   {
+//     label: "In progress",
+//     value: "14",
+//     note: "Steady",
+//     noteColor: "text-slate-500",
+//   },
+//   {
+//     label: "Resolved this week",
+//     value: "31",
+//     note: "↑ 12% vs last week",
+//     noteColor: "text-emerald-400",
+//   },
+//   {
+//     label: "Overdue",
+//     value: "4",
+//     note: "Needs attention",
+//     noteColor: "text-rose-400",
+//   },
+// ];
+
+// const priorities = [
+//   { name: "Critical", count: 2, color: "bg-rose-500", width: "67%" },
+//   { name: "High", count: 2, color: "bg-amber-400", width: "67%" },
+//   { name: "Medium", count: 3, color: "bg-blue-500", width: "100%" },
+//   { name: "Low", count: 1, color: "bg-slate-500", width: "33%" },
+// ];
+
+// const team = [
+//   { name: "Dev Kapoor", initials: "DK", count: 6, color: "bg-amber-400" },
+//   { name: "Rosa Silva", initials: "RS", count: 5, color: "bg-emerald-400" },
+//   { name: "Mara Patel", initials: "MP", count: 4, color: "bg-blue-400" },
+//   { name: "You", initials: "YO", count: 3, color: "bg-blue-500" },
+// ];
+
+// function Avatar({ initials, color = "bg-blue-500" }) {
+//   return (
+//     <span
+//       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${color} text-[10px] font-bold text-slate-950`}
+//     >
+//       {initials}
+//     </span>
+//   );
+// }
+
+// function StatusBadge({ status }) {
+//   const styles = {
+//     Open: "bg-blue-500/15 text-blue-300",
+//     "In progress": "bg-amber-500/15 text-amber-300",
+//     Resolved: "bg-emerald-500/15 text-emerald-300",
+//   };
+
+//   const dots = {
+//     Open: "bg-blue-400",
+//     "In progress": "bg-amber-400",
+//     Resolved: "bg-emerald-400",
+//   };
+
+//   return (
+//     <span
+//       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${
+//         styles[status] || "bg-slate-700 text-slate-300"
+//       }`}
+//     >
+//       <span
+//         className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+//           dots[status] || "bg-slate-400"
+//         }`}
+//       />
+//       {status}
+//     </span>
+//   );
+// }
+
+// function PriorityBadge({ priority }) {
+//   const styles = {
+//     Critical: "bg-rose-500/15 text-rose-300",
+//     High: "bg-amber-500/15 text-amber-300",
+//     Medium: "bg-blue-500/15 text-blue-300",
+//     Low: "bg-slate-500/15 text-slate-400",
+//   };
+
+//   return (
+//     <span
+//       className={`inline-flex whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-semibold ${
+//         styles[priority] || "bg-slate-700 text-slate-300"
+//       }`}
+//     >
+//       {priority}
+//     </span>
+//   );
+// }
+
+// export default function Dashboard() {
+//   const [search, setSearch] = useState("");
+//   const [showAll, setShowAll] = useState(false);
+//   const [showNotifications, setShowNotifications] = useState(false);
+
+//   const filteredTickets = tickets.filter((ticket) =>
+//     `${ticket.id} ${ticket.title} ${ticket.project} ${ticket.assignee}`
+//       .toLowerCase()
+//       .includes(search.toLowerCase().trim())
+//   );
+
+//   const visibleTickets = showAll
+//     ? filteredTickets
+//     : filteredTickets.slice(0, 5);
+
+//   return (
+//     <div className="min-w-0 w-full text-[#f3f5fb]">
+//       {/* Top navigation */}
+//       <header className="mb-6 flex min-w-0 items-center gap-2 sm:gap-3">
+//         <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#202943] bg-[#111b32] px-3 py-3 transition focus-within:border-[#536df5]">
+//           <span className="shrink-0 text-lg text-slate-500" aria-hidden="true">
+//             ⌕
+//           </span>
+
+//           <input
+//             value={search}
+//             onChange={(event) => setSearch(event.target.value)}
+//             placeholder="Search tickets, projects..."
+//             className="w-full min-w-0 bg-transparent text-xs text-white outline-none placeholder:text-slate-500"
+//             aria-label="Search tickets, projects and people"
+//           />
+
+//           {search && (
+//             <button
+//               type="button"
+//               onClick={() => setSearch("")}
+//               className="shrink-0 text-xs text-slate-400 hover:text-white"
+//               aria-label="Clear search"
+//             >
+//               ✕
+//             </button>
+//           )}
+//         </label>
+
+//         <div className="relative flex shrink-0 items-center gap-2 sm:gap-3">
+//           <button
+//             type="button"
+//             onClick={() => setShowNotifications((previous) => !previous)}
+//             aria-label="Notifications"
+//             aria-expanded={showNotifications}
+//             className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#202943] bg-[#111b32] text-lg text-slate-300 transition hover:bg-[#1a2743]"
+//           >
+//             ♧
+//             <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-rose-400" />
+//           </button>
+
+//           {showNotifications && (
+//             <div className="absolute right-0 top-12 z-30 w-[min(280px,calc(100vw-2rem))] rounded-xl border border-[#283552] bg-[#111b32] p-4 shadow-xl">
+//               <div className="flex items-center justify-between gap-2">
+//                 <p className="text-sm font-semibold">Notifications</p>
+//                 <button
+//                   type="button"
+//                   onClick={() => setShowNotifications(false)}
+//                   aria-label="Close notifications"
+//                   className="text-lg text-slate-400 hover:text-white"
+//                 >
+//                   ×
+//                 </button>
+//               </div>
+//               <p className="mt-2 text-xs leading-relaxed text-slate-400">
+//                 You have 4 overdue tickets that may need attention.
+//               </p>
+//             </div>
+//           )}
+
+//           <Avatar initials="YO" />
+//         </div>
+//       </header>
+
+//       {/* Page title */}
+//       <section className="mb-6 flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+//         <div className="min-w-0">
+//           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+//             Overview
+//           </h1>
+//           <p className="mt-1 break-words text-xs text-slate-500">
+//             Northwind Logistics · Tuesday, September 22
+//           </p>
+//         </div>
+
+//         <Link
+//           to="/tickets"
+//           className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-[#5b78ff] to-[#4560e9] px-4 py-3 text-xs font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 sm:w-auto"
+//         >
+//           + New ticket
+//         </Link>
+//       </section>
+
+//       {/* Summary cards */}
+//       <section className="mb-6 grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+//         {stats.map((stat) => (
+//           <div
+//             key={stat.label}
+//             className="min-w-0 rounded-xl border border-[#1d2944] bg-[#111d36] p-3 transition hover:border-[#344568] sm:p-4"
+//           >
+//             <p className="text-xs font-medium leading-relaxed text-slate-400">
+//               {stat.label}
+//             </p>
+
+//             <p className="my-2 text-2xl font-bold tracking-tight sm:text-3xl">
+//               {stat.value}
+//             </p>
+
+//             <p className={`break-words text-[10px] font-medium ${stat.noteColor}`}>
+//               {stat.note}
+//             </p>
+//           </div>
+//         ))}
+//       </section>
+
+//       {/* Tickets and side panels */}
+//       <section className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(270px,0.9fr)]">
+//         {/* Recent tickets */}
+//         <div className="min-w-0 overflow-hidden rounded-xl border border-[#1d2944] bg-[#111d36]">
+//           <div className="flex items-center justify-between gap-3 border-b border-[#202943] px-4 py-4">
+//             <h2 className="text-sm font-semibold">Recent tickets</h2>
+
+//             <button
+//               type="button"
+//               onClick={() => setShowAll((previous) => !previous)}
+//               className="shrink-0 text-xs font-medium text-blue-400 hover:text-blue-300"
+//             >
+//               {showAll ? "Show less" : "View all"}
+//             </button>
+//           </div>
+
+//           {/* Mobile ticket cards */}
+//           <div className="divide-y divide-[#202943] md:hidden">
+//             {visibleTickets.map((ticket) => (
+//               <article key={ticket.id} className="min-w-0 p-4">
+//                 <div className="mb-2 flex items-start justify-between gap-2">
+//                   <span className="text-[10px] text-slate-500">
+//                     {ticket.id}
+//                   </span>
+//                   <StatusBadge status={ticket.status} />
+//                 </div>
+
+//                 <h3 className="break-words text-sm font-semibold leading-relaxed text-slate-100">
+//                   {ticket.title}
+//                 </h3>
+
+//                 <p className="mt-1 break-words text-xs text-slate-500">
+//                   {ticket.project}
+//                 </p>
+
+//                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+//                   <PriorityBadge priority={ticket.priority} />
+
+//                   <div className="flex min-w-0 items-center gap-2">
+//                     <Avatar initials={ticket.initials} color={ticket.color} />
+//                     <span className="max-w-[130px] truncate text-xs text-slate-300">
+//                       {ticket.assignee}
+//                     </span>
+//                   </div>
+//                 </div>
+
+//                 <div className="mt-3 flex items-center justify-between border-t border-[#202943] pt-3 text-xs">
+//                   <span className="text-slate-500">Due date</span>
+//                   <span className="text-slate-300">{ticket.due}</span>
+//                 </div>
+//               </article>
+//             ))}
+
+//             {visibleTickets.length === 0 && (
+//               <p className="px-4 py-10 text-center text-sm text-slate-400">
+//                 No tickets match your search.
+//               </p>
+//             )}
+//           </div>
+
+//           {/* Desktop ticket table */}
+//           <div className="hidden overflow-x-auto md:block">
+//             <table className="w-full min-w-[680px] border-collapse text-left">
+//               <thead>
+//                 <tr className="text-[9px] font-bold tracking-wider text-slate-500">
+//                   <th className="px-3 py-3">ID</th>
+//                   <th className="px-3 py-3">TICKET</th>
+//                   <th className="px-3 py-3">STATUS</th>
+//                   <th className="px-3 py-3">PRIORITY</th>
+//                   <th className="px-3 py-3">ASSIGNEE</th>
+//                   <th className="px-3 py-3">DUE</th>
+//                 </tr>
+//               </thead>
+
+//               <tbody>
+//                 {visibleTickets.map((ticket) => (
+//                   <tr
+//                     key={ticket.id}
+//                     className="border-t border-[#202943]/80 transition hover:bg-[#172541]"
+//                   >
+//                     <td className="whitespace-nowrap px-3 py-4 text-[10px] text-slate-500">
+//                       {ticket.id}
+//                     </td>
+
+//                     <td className="max-w-[220px] px-3 py-4">
+//                       <p className="text-[11px] font-medium leading-snug text-slate-200">
+//                         {ticket.title}
+//                       </p>
+//                       <p className="mt-1 text-[10px] text-slate-500">
+//                         {ticket.project}
+//                       </p>
+//                     </td>
+
+//                     <td className="px-3 py-4">
+//                       <StatusBadge status={ticket.status} />
+//                     </td>
+
+//                     <td className="px-3 py-4">
+//                       <PriorityBadge priority={ticket.priority} />
+//                     </td>
+
+//                     <td className="px-3 py-4">
+//                       <div className="flex items-center gap-2">
+//                         <Avatar
+//                           initials={ticket.initials}
+//                           color={ticket.color}
+//                         />
+//                         <span className="whitespace-nowrap text-[10px] text-slate-300">
+//                           {ticket.assignee}
+//                         </span>
+//                       </div>
+//                     </td>
+
+//                     <td className="whitespace-nowrap px-3 py-4 text-[10px] text-slate-400">
+//                       {ticket.due}
+//                     </td>
+//                   </tr>
+//                 ))}
+
+//                 {visibleTickets.length === 0 && (
+//                   <tr>
+//                     <td
+//                       colSpan={6}
+//                       className="px-4 py-10 text-center text-sm text-slate-400"
+//                     >
+//                       No tickets match your search.
+//                     </td>
+//                   </tr>
+//                 )}
+//               </tbody>
+//             </table>
+//           </div>
+//         </div>
+
+//         {/* Right-side panels */}
+//         <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
+//           {/* Priority */}
+//           <div className="min-w-0 rounded-xl border border-[#1d2944] bg-[#111d36] p-4">
+//             <h2 className="mb-5 text-sm font-semibold">By priority</h2>
+
+//             <div className="space-y-5">
+//               {priorities.map((priority) => (
+//                 <div key={priority.name} className="flex items-center gap-3">
+//                   <span className="w-12 shrink-0 text-[10px] text-slate-400">
+//                     {priority.name}
+//                   </span>
+
+//                   <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#081225]">
+//                     <div
+//                       className={`h-full rounded-full ${priority.color}`}
+//                       style={{ width: priority.width }}
+//                     />
+//                   </div>
+
+//                   <span className="w-3 shrink-0 text-right text-[10px] text-slate-500">
+//                     {priority.count}
+//                   </span>
+//                 </div>
+//               ))}
+//             </div>
+//           </div>
+
+//           {/* Team load */}
+//           <div className="min-w-0 overflow-hidden rounded-xl border border-[#1d2944] bg-[#111d36]">
+//             <div className="border-b border-[#202943] px-4 py-4">
+//               <h2 className="text-sm font-semibold">Team load</h2>
+//             </div>
+
+//             <div className="space-y-4 p-4">
+//               {team.map((member) => (
+//                 <div
+//                   key={member.name}
+//                   className="flex min-w-0 items-center justify-between gap-3"
+//                 >
+//                   <div className="flex min-w-0 items-center gap-2.5">
+//                     <Avatar
+//                       initials={member.initials}
+//                       color={member.color}
+//                     />
+//                     <span className="truncate text-[11px] text-slate-300">
+//                       {member.name}
+//                     </span>
+//                   </div>
+
+//                   <span className="shrink-0 text-[10px] text-slate-400">
+//                     {member.count}
+//                   </span>
+//                 </div>
+//               ))}
+//             </div>
+//           </div>
+//         </div>
+//       </section>
+
+//       <footer className="pt-6 text-center text-[10px] text-slate-600">
+//         Relay · Ticket Tracking Workspace
+//       </footer>
+//     </div>
+//   );
+// }
+
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -103,7 +587,7 @@ const team = [
 function Avatar({ initials, color = "bg-blue-500" }) {
   return (
     <span
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${color} text-[10px] font-bold text-slate-950`}
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${color} text-[10px] font-bold text-slate-950`}
     >
       {initials}
     </span>
@@ -125,11 +609,15 @@ function StatusBadge({ status }) {
 
   return (
     <span
-      className={`inline-flex whitespace-nowrap items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold ${
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${
         styles[status] || "bg-slate-700 text-slate-300"
       }`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${dots[status] || "bg-slate-400"}`} />
+      <span
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+          dots[status] || "bg-slate-400"
+        }`}
+      />
       {status}
     </span>
   );
@@ -162,7 +650,7 @@ export default function Dashboard() {
   const filteredTickets = tickets.filter((ticket) =>
     `${ticket.id} ${ticket.title} ${ticket.project} ${ticket.assignee}`
       .toLowerCase()
-      .includes(search.toLowerCase())
+      .includes(search.toLowerCase().trim())
   );
 
   const visibleTickets = showAll
@@ -170,228 +658,319 @@ export default function Dashboard() {
     : filteredTickets.slice(0, 5);
 
   return (
-    <div className="min-w-0 text-[#f3f5fb]">
-      {/* Top navigation */}
-      <header className="mb-6 flex items-center justify-between gap-3">
-        <label className="flex w-full max-w-md items-center gap-2 rounded-lg border border-[#202943] bg-[#111b32] px-3 py-2.5 focus-within:border-[#536df5]">
-          <span className="text-slate-500">⌕</span>
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search tickets, projects, people..."
-            className="w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-500"
-            aria-label="Search tickets"
-          />
-          {search && (
+    <div className="relative isolate min-h-screen min-w-0 w-full text-[#f3f5fb]">
+      {/* Fixed dark background */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 bg-[#080d1b]"
+      />
+
+      {/* Dashboard content */}
+      <div className="relative z-10 min-h-screen min-w-0 w-full">
+
+        {/* Top navigation */}
+        <header className="mb-6 flex min-w-0 items-center gap-2 sm:gap-3">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#202943] bg-[#111b32] px-3 py-3 transition focus-within:border-[#536df5]">
+            <span className="shrink-0 text-lg text-slate-500" aria-hidden="true">
+              ⌕
+            </span>
+
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search tickets, projects..."
+              className="w-full min-w-0 bg-transparent text-xs text-white outline-none placeholder:text-slate-500"
+              aria-label="Search tickets, projects and people"
+            />
+
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="shrink-0 text-xs text-slate-400 hover:text-white"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </label>
+
+          <div className="relative flex shrink-0 items-center gap-2 sm:gap-3">
             <button
-              onClick={() => setSearch("")}
-              className="text-xs text-slate-400 hover:text-white"
-              aria-label="Clear search"
+              type="button"
+              onClick={() => setShowNotifications((previous) => !previous)}
+              aria-label="Notifications"
+              aria-expanded={showNotifications}
+              className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#202943] bg-[#111b32] text-lg text-slate-300 transition hover:bg-[#1a2743]"
             >
-              ✕
+              ♧
+              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-rose-400" />
             </button>
-          )}
-        </label>
 
-        <div className="relative flex shrink-0 items-center gap-3">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            aria-label="Notifications"
-            className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[#202943] bg-[#111b32] text-slate-300 hover:bg-[#1a2743]"
+            {showNotifications && (
+              <div className="absolute right-0 top-12 z-30 w-[min(280px,calc(100vw-2rem))] rounded-xl border border-[#283552] bg-[#111b32] p-4 shadow-xl">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Notifications</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotifications(false)}
+                    aria-label="Close notifications"
+                    className="text-lg text-slate-400 hover:text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  You have 4 overdue tickets that may need attention.
+                </p>
+              </div>
+            )}
+
+            <Avatar initials="YO" />
+          </div>
+        </header>
+
+        {/* Page title */}
+        <section className="mb-6 flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Overview
+            </h1>
+            <p className="mt-1 break-words text-xs text-slate-500">
+              Northwind Logistics · Tuesday, September 22
+            </p>
+          </div>
+
+          <Link
+            to="/tickets"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-[#5b78ff] to-[#4560e9] px-4 py-3 text-xs font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 sm:w-auto"
           >
-            ♧
-            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-rose-400" />
-          </button>
+            + New ticket
+          </Link>
+        </section>
 
-          {showNotifications && (
-            <div className="absolute right-12 top-11 z-20 w-64 rounded-xl border border-[#283552] bg-[#111b32] p-4 shadow-xl">
-              <p className="text-sm font-semibold">Notifications</p>
-              <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                You have 4 overdue tickets that may need attention.
+        {/* Summary cards */}
+        <section className="mb-6 grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="min-w-0 rounded-xl border border-[#1d2944] bg-[#111d36] p-3 transition hover:border-[#344568] sm:p-4"
+            >
+              <p className="text-xs font-medium leading-relaxed text-slate-400">
+                {stat.label}
+              </p>
+
+              <p className="my-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                {stat.value}
+              </p>
+
+              <p className={`break-words text-[10px] font-medium ${stat.noteColor}`}>
+                {stat.note}
               </p>
             </div>
-          )}
+          ))}
+        </section>
 
-          <Avatar initials="YO" />
-        </div>
-      </header>
+        {/* Tickets and side panels */}
+        <section className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(270px,0.9fr)]">
 
-      {/* Page title */}
-      <section className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Overview
-          </h1>
-          <p className="mt-1 text-xs text-slate-500">
-            Northwind Logistics · Tuesday, September 22
-          </p>
-        </div>
+          {/* Recent tickets */}
+          <div className="min-w-0 overflow-hidden rounded-xl border border-[#1d2944] bg-[#111d36]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#202943] px-4 py-4">
+              <h2 className="text-sm font-semibold">Recent tickets</h2>
 
-        <Link
-          to="/tickets"
-          className="rounded-lg bg-gradient-to-r from-[#5b78ff] to-[#4560e9] px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110"
-        >
-          + New ticket
-        </Link>
-      </section>
+              <button
+                type="button"
+                onClick={() => setShowAll((previous) => !previous)}
+                className="shrink-0 text-xs font-medium text-blue-400 hover:text-blue-300"
+              >
+                {showAll ? "Show less" : "View all"}
+              </button>
+            </div>
 
-      {/* Summary cards */}
-      <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-[#1d2944] bg-[#111d36] p-4 transition hover:border-[#344568]"
-          >
-            <p className="text-xs font-medium text-slate-400">{stat.label}</p>
-            <p className="my-2 text-3xl font-bold tracking-tight">
-              {stat.value}
-            </p>
-            <p className={`text-[10px] font-medium ${stat.noteColor}`}>
-              {stat.note}
-            </p>
-          </div>
-        ))}
-      </section>
-
-      {/* Tickets and side panels */}
-      <section className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(270px,0.9fr)]">
-        {/* Recent tickets */}
-        <div className="min-w-0 overflow-hidden rounded-xl border border-[#1d2944] bg-[#111d36]">
-          <div className="flex items-center justify-between border-b border-[#202943] px-4 py-4">
-            <h2 className="text-sm font-semibold">Recent tickets</h2>
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="text-xs font-medium text-blue-400 hover:text-blue-300"
-            >
-              {showAll ? "Show less" : "View all"}
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] border-collapse text-left">
-              <thead>
-                <tr className="text-[9px] font-bold tracking-wider text-slate-500">
-                  <th className="px-3 py-3">ID</th>
-                  <th className="px-3 py-3">TICKET</th>
-                  <th className="px-3 py-3">STATUS</th>
-                  <th className="px-3 py-3">PRIORITY</th>
-                  <th className="px-3 py-3">ASSIGNEE</th>
-                  <th className="px-3 py-3">DUE</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {visibleTickets.map((ticket) => (
-                  <tr
-                    key={ticket.id}
-                    className="border-t border-[#202943]/80 transition hover:bg-[#172541]"
-                  >
-                    <td className="px-3 py-4 text-[10px] text-slate-500">
+            {/* Mobile ticket cards */}
+            <div className="divide-y divide-[#202943] md:hidden">
+              {visibleTickets.map((ticket) => (
+                <article key={ticket.id} className="min-w-0 p-4">
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <span className="text-[10px] text-slate-500">
                       {ticket.id}
-                    </td>
-                    <td className="max-w-[220px] px-3 py-4">
-                      <p className="text-[11px] font-medium leading-snug text-slate-200">
-                        {ticket.title}
-                      </p>
-                      <p className="mt-1 text-[10px] text-slate-500">
-                        {ticket.project}
-                      </p>
-                    </td>
-                    <td className="px-3 py-4">
-                      <StatusBadge status={ticket.status} />
-                    </td>
-                    <td className="px-3 py-4">
-                      <PriorityBadge priority={ticket.priority} />
-                    </td>
-                    <td className="px-3 py-4">
-                      <div className="flex items-center gap-2">
-                        <Avatar initials={ticket.initials} color={ticket.color} />
-                        <span className="whitespace-nowrap text-[10px] text-slate-300">
-                          {ticket.assignee}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-[10px] text-slate-400">
-                      {ticket.due}
-                    </td>
-                  </tr>
-                ))}
-
-                {visibleTickets.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-10 text-center text-sm text-slate-400"
-                    >
-                      No tickets match your search.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Right-side panels */}
-        <div className="space-y-4">
-          {/* Priority */}
-          <div className="rounded-xl border border-[#1d2944] bg-[#111d36] p-4">
-            <h2 className="mb-5 text-sm font-semibold">By priority</h2>
-
-            <div className="space-y-5">
-              {priorities.map((priority) => (
-                <div key={priority.name} className="flex items-center gap-3">
-                  <span className="w-12 shrink-0 text-[10px] text-slate-400">
-                    {priority.name}
-                  </span>
-
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#081225]">
-                    <div
-                      className={`h-full rounded-full ${priority.color}`}
-                      style={{ width: priority.width }}
-                    />
+                    </span>
+                    <StatusBadge status={ticket.status} />
                   </div>
 
-                  <span className="w-3 text-right text-[10px] text-slate-500">
-                    {priority.count}
-                  </span>
-                </div>
+                  <h3 className="break-words text-sm font-semibold leading-relaxed text-slate-100">
+                    {ticket.title}
+                  </h3>
+
+                  <p className="mt-1 break-words text-xs text-slate-500">
+                    {ticket.project}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <PriorityBadge priority={ticket.priority} />
+
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Avatar initials={ticket.initials} color={ticket.color} />
+                      <span className="max-w-[130px] truncate text-xs text-slate-300">
+                        {ticket.assignee}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-[#202943] pt-3 text-xs">
+                    <span className="text-slate-500">Due date</span>
+                    <span className="text-slate-300">{ticket.due}</span>
+                  </div>
+                </article>
               ))}
+
+              {visibleTickets.length === 0 && (
+                <p className="px-4 py-10 text-center text-sm text-slate-400">
+                  No tickets match your search.
+                </p>
+              )}
+            </div>
+
+            {/* Desktop ticket table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[680px] border-collapse text-left">
+                <thead>
+                  <tr className="text-[9px] font-bold tracking-wider text-slate-500">
+                    <th className="px-3 py-3">ID</th>
+                    <th className="px-3 py-3">TICKET</th>
+                    <th className="px-3 py-3">STATUS</th>
+                    <th className="px-3 py-3">PRIORITY</th>
+                    <th className="px-3 py-3">ASSIGNEE</th>
+                    <th className="px-3 py-3">DUE</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {visibleTickets.map((ticket) => (
+                    <tr
+                      key={ticket.id}
+                      className="border-t border-[#202943]/80 transition hover:bg-[#172541]"
+                    >
+                      <td className="whitespace-nowrap px-3 py-4 text-[10px] text-slate-500">
+                        {ticket.id}
+                      </td>
+
+                      <td className="max-w-[220px] px-3 py-4">
+                        <p className="text-[11px] font-medium leading-snug text-slate-200">
+                          {ticket.title}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          {ticket.project}
+                        </p>
+                      </td>
+
+                      <td className="px-3 py-4">
+                        <StatusBadge status={ticket.status} />
+                      </td>
+
+                      <td className="px-3 py-4">
+                        <PriorityBadge priority={ticket.priority} />
+                      </td>
+
+                      <td className="px-3 py-4">
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            initials={ticket.initials}
+                            color={ticket.color}
+                          />
+                          <span className="whitespace-nowrap text-[10px] text-slate-300">
+                            {ticket.assignee}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-4 text-[10px] text-slate-400">
+                        {ticket.due}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {visibleTickets.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-4 py-10 text-center text-sm text-slate-400"
+                      >
+                        No tickets match your search.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          {/* Team load */}
-          <div className="overflow-hidden rounded-xl border border-[#1d2944] bg-[#111d36]">
-            <div className="border-b border-[#202943] px-4 py-4">
-              <h2 className="text-sm font-semibold">Team load</h2>
-            </div>
+          {/* Right-side panels */}
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
 
-            <div className="space-y-4 p-4">
-              {team.map((member) => (
-                <div
-                  key={member.name}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <Avatar initials={member.initials} color={member.color} />
-                    <span className="truncate text-[11px] text-slate-300">
-                      {member.name}
+            {/* Priority */}
+            <div className="min-w-0 rounded-xl border border-[#1d2944] bg-[#111d36] p-4">
+              <h2 className="mb-5 text-sm font-semibold">By priority</h2>
+
+              <div className="space-y-5">
+                {priorities.map((priority) => (
+                  <div key={priority.name} className="flex items-center gap-3">
+                    <span className="w-12 shrink-0 text-[10px] text-slate-400">
+                      {priority.name}
+                    </span>
+
+                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#081225]">
+                      <div
+                        className={`h-full rounded-full ${priority.color}`}
+                        style={{ width: priority.width }}
+                      />
+                    </div>
+
+                    <span className="w-3 shrink-0 text-right text-[10px] text-slate-500">
+                      {priority.count}
                     </span>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  <span className="text-[10px] text-slate-400">
-                    {member.count}
-                  </span>
-                </div>
-              ))}
+            {/* Team load */}
+            <div className="min-w-0 overflow-hidden rounded-xl border border-[#1d2944] bg-[#111d36]">
+              <div className="border-b border-[#202943] px-4 py-4">
+                <h2 className="text-sm font-semibold">Team load</h2>
+              </div>
+
+              <div className="space-y-4 p-4">
+                {team.map((member) => (
+                  <div
+                    key={member.name}
+                    className="flex min-w-0 items-center justify-between gap-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Avatar
+                        initials={member.initials}
+                        color={member.color}
+                      />
+                      <span className="truncate text-[11px] text-slate-300">
+                        {member.name}
+                      </span>
+                    </div>
+
+                    <span className="shrink-0 text-[10px] text-slate-400">
+                      {member.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <footer className="pt-4 text-center text-[10px] text-slate-600">
-        Relay · Ticket Tracking Workspace
-      </footer>
+        <footer className="pt-6 text-center text-[10px] text-slate-600">
+          Relay · Ticket Tracking Workspace
+        </footer>
+      </div>
     </div>
   );
 }

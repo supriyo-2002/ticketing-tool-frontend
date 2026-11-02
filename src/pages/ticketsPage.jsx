@@ -141,12 +141,11 @@ export default function TicketsPage() {
     loadData();
   }, []);
 
-  // Convert user IDs to employee names.
   const getEmployeeName = (userId) => {
     if (!userId) return "Unassigned";
 
     const employee = employees.find(
-      (item) => item.user_id === userId
+      (item) => String(item.user_id) === String(userId)
     );
 
     return employee?.name || "Employee not found";
@@ -158,7 +157,8 @@ export default function TicketsPage() {
     return (
       ticket.status?.name ||
       statuses.find(
-        (item) => item.status_id === ticket.status_id
+        (item) =>
+          String(item.status_id) === String(ticket.status_id)
       )?.name ||
       "Unknown"
     );
@@ -170,22 +170,24 @@ export default function TicketsPage() {
     return (
       ticket.priority?.name ||
       priorities.find(
-        (item) => item.priority_id === ticket.priority_id
+        (item) =>
+          String(item.priority_id) === String(ticket.priority_id)
       )?.name ||
       "Unknown"
     );
   };
 
   const getProjectName = (ticket) => {
+    const project = projects.find(
+      (item) =>
+        String(item.project_id) === String(ticket.project_id)
+    );
+
     return (
       ticket.project?.name ||
       ticket.project?.project_name ||
-      projects.find(
-        (item) => item.project_id === ticket.project_id
-      )?.name ||
-      projects.find(
-        (item) => item.project_id === ticket.project_id
-      )?.project_name ||
+      project?.name ||
+      project?.project_name ||
       "Unknown"
     );
   };
@@ -200,12 +202,12 @@ export default function TicketsPage() {
   };
 
   const getTicketId = (ticket) => {
-    return ticket.ticket_id || ticket.id;
+    return ticket.ticket_id ?? ticket.id;
   };
 
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
-      const searchText = search.toLowerCase();
+      const searchText = search.toLowerCase().trim();
 
       const matchesSearch = [
         ticket.title,
@@ -221,22 +223,32 @@ export default function TicketsPage() {
 
       const matchesStatusFilter =
         !statusFilter ||
-        ticket.status_id === statusFilter ||
-        ticket.status?.status_id === statusFilter ||
-        getStatusName(ticket) === statusFilter;
+        String(ticket.status_id) === String(statusFilter) ||
+        String(ticket.status?.status_id) === String(statusFilter) ||
+        getStatusName(ticket) ===
+          statuses.find(
+            (item) =>
+              String(item.status_id) === String(statusFilter)
+          )?.name;
 
       const matchesPriorityFilter =
         !priorityFilter ||
-        ticket.priority_id === priorityFilter ||
-        ticket.priority?.priority_id === priorityFilter ||
-        getPriorityName(ticket) === priorityFilter;
+        String(ticket.priority_id) === String(priorityFilter) ||
+        String(ticket.priority?.priority_id) === String(priorityFilter) ||
+        getPriorityName(ticket) ===
+          priorities.find(
+            (item) =>
+              String(item.priority_id) === String(priorityFilter)
+          )?.name;
 
       const matchesProjectFilter =
         !projectFilter ||
-        ticket.project_id === projectFilter ||
-        ticket.project?.project_id === projectFilter;
+        String(ticket.project_id) === String(projectFilter) ||
+        String(ticket.project?.project_id) === String(projectFilter);
 
-      const normalizedStatus = getStatusName(ticket).toLowerCase();
+      const normalizedStatus = getStatusName(ticket)
+        .trim()
+        .toLowerCase();
 
       const matchesTab =
         statusTab === "All" ||
@@ -323,10 +335,9 @@ export default function TicketsPage() {
   };
 
   const handleDeleteTicket = async (ticket) => {
-    // Prevent a button click from triggering the ticket-row click.
     const ticketId = getTicketId(ticket);
 
-    if (!ticketId) {
+    if (ticketId == null || ticketId === "") {
       setPageError("Cannot delete this ticket: ticket ID is missing.");
       return;
     }
@@ -346,12 +357,14 @@ export default function TicketsPage() {
 
       setTickets((previous) =>
         previous.filter(
-          (item) => getTicketId(item) !== ticketId
+          (item) =>
+            String(getTicketId(item)) !== String(ticketId)
         )
       );
 
       setSelectedTicket((previous) =>
-        previous && getTicketId(previous) === ticketId
+        previous &&
+        String(getTicketId(previous)) === String(ticketId)
           ? null
           : previous
       );
@@ -365,10 +378,10 @@ export default function TicketsPage() {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500";
+    "w-full min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
   const tabClass = (tab) =>
-    `rounded-lg border px-4 py-2.5 text-sm transition ${
+    `shrink-0 rounded-lg border px-3 py-2.5 text-sm transition sm:px-4 ${
       statusTab === tab
         ? "border-blue-700 bg-blue-950 text-blue-300"
         : "border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800"
@@ -379,12 +392,20 @@ export default function TicketsPage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 text-slate-100 sm:p-6">
-      <div className="mx-auto max-w-[1600px]">
-        {/* Header */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Tickets</h1>
+    <div className="relative isolate min-h-screen min-w-0 text-slate-100">
+      {/* Fixed background stays stationary while page content scrolls */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 bg-slate-950"
+      />
+
+      <div className="relative z-10 mx-auto min-h-screen w-full max-w-[1600px] min-w-0 p-2 sm:p-4 lg:p-6">
+                {/* Header */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold sm:text-3xl">
+              Tickets
+            </h1>
             <p className="mt-1 text-sm text-slate-400">
               {tickets.length} tickets across {projects.length} projects
             </p>
@@ -398,7 +419,7 @@ export default function TicketsPage() {
               setForm(initialForm);
               setModalOpen(true);
             }}
-            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
+            className="w-full rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 sm:w-auto"
           >
             + New ticket
           </button>
@@ -406,26 +427,33 @@ export default function TicketsPage() {
 
         {/* Messages */}
         {pageError && (
-          <div className="mb-4 rounded-lg border border-red-800 bg-red-950/50 p-3 text-sm text-red-300">
+          <div
+            role="alert"
+            className="mb-4 break-words rounded-lg border border-red-800 bg-red-950/50 p-3 text-sm text-red-300"
+          >
             {pageError}
           </div>
         )}
 
         {successMessage && (
-          <div className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-300">
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-300"
+          >
             {successMessage}
           </div>
         )}
 
-        {/* Status tabs and filters */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2">
+        {/* Status tabs */}
+        <div className="mb-4 min-w-0">
+          <div className="flex gap-2 overflow-x-auto pb-2 md:flex-wrap md:overflow-visible">
             {["All", "Open", "In Progress", "Resolved", "Closed"].map(
               (tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setStatusTab(tab)}
+                  aria-pressed={statusTab === tab}
                   className={tabClass(tab)}
                 >
                   {tab}
@@ -433,190 +461,292 @@ export default function TicketsPage() {
               )
             )}
           </div>
+        </div>
 
-          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 lg:w-auto">
-            <select
-              value={priorityFilter}
-              onChange={(event) => setPriorityFilter(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">All priorities</option>
-              {priorities.map((priority) => (
-                <option
-                  key={priority.priority_id}
-                  value={priority.priority_id}
-                >
-                  {priority.name}
-                </option>
-              ))}
-            </select>
+        {/* Filters */}
+        <div className="mb-4 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <select
+            aria-label="Filter by priority"
+            value={priorityFilter}
+            onChange={(event) => setPriorityFilter(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">All priorities</option>
+            {priorities.map((priority) => (
+              <option
+                key={priority.priority_id}
+                value={priority.priority_id}
+              >
+                {priority.name}
+              </option>
+            ))}
+          </select>
 
-            <select
-              value={projectFilter}
-              onChange={(event) => setProjectFilter(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">All projects</option>
-              {projects.map((project) => (
-                <option
-                  key={project.project_id}
-                  value={project.project_id}
-                >
-                  {project.name ||
-                    project.project_name ||
-                    "Unnamed project"}
-                </option>
-              ))}
-            </select>
+          <select
+            aria-label="Filter by project"
+            value={projectFilter}
+            onChange={(event) => setProjectFilter(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">All projects</option>
+            {projects.map((project) => (
+              <option
+                key={project.project_id}
+                value={project.project_id}
+              >
+                {project.name ||
+                  project.project_name ||
+                  "Unnamed project"}
+              </option>
+            ))}
+          </select>
 
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">All statuses</option>
-              {statuses.map((status) => (
-                <option
-                  key={status.status_id}
-                  value={status.status_id}
-                >
-                  {status.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">All statuses</option>
+            {statuses.map((status) => (
+              <option
+                key={status.status_id}
+                value={status.status_id}
+              >
+                {status.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Search */}
-        <div className="mb-5">
+        <div className="mb-5 min-w-0">
           <input
+            type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search tickets, projects, assignees..."
-            className={`${inputClass} max-w-xl`}
+            aria-label="Search tickets"
+            className={inputClass}
           />
         </div>
 
-        {/* Ticket table and details card */}
-        <div className="relative">
-          <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
-            {loading ? (
-              <p className="p-8 text-center text-slate-400">
-                Loading tickets...
-              </p>
-            ) : (
-              <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className="border-b border-slate-800 bg-slate-900/80 text-slate-500">
-                  <tr>
-                    <th className="px-5 py-4 font-medium">ID</th>
-                    <th className="px-5 py-4 font-medium">Ticket</th>
-                    <th className="px-5 py-4 font-medium">Status</th>
-                    <th className="px-5 py-4 font-medium">Priority</th>
-                    <th className="px-5 py-4 font-medium">Assignee</th>
-                    <th className="px-5 py-4 font-medium">Due date</th>
-                    <th className="px-5 py-4 font-medium">Actions</th>
-                  </tr>
-                </thead>
+        {/* Ticket list */}
+        <div className="min-w-0">
+          {loading ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-400">
+              Loading tickets...
+            </div>
+          ) : filteredTickets.length === 0 ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-400">
+              {tickets.length === 0
+                ? "No tickets returned by the API."
+                : "No tickets match your search or filters."}
+            </div>
+          ) : (
+            <>
+              {/* Mobile ticket cards */}
+              <div className="grid grid-cols-1 gap-3 md:hidden">
+                {filteredTickets.map((ticket) => {
+                  const ticketId = getTicketId(ticket);
 
-                <tbody className="divide-y divide-slate-800">
-                  {filteredTickets.map((ticket) => {
-                    const ticketId = getTicketId(ticket);
-                    const isSelected = selectedTicketId === ticketId;
-
-                    return (
-                      <tr
-                        key={ticketId}
-                        onClick={() => setSelectedTicket(ticket)}
-                        className={`cursor-pointer transition ${
-                          isSelected
-                            ? "bg-slate-800/80"
-                            : "hover:bg-slate-800/50"
-                        }`}
-                      >
-                        <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">
-                          {ticket.ticket_number ||
-                            ticket.ticket_code ||
-                            (ticketId
-                              ? `TCK-${String(ticketId).slice(0, 8)}`
-                              : "—")}
-                        </td>
-
-                        <td className="min-w-[250px] px-5 py-4">
-                          <p className="font-semibold text-white">
-                            {ticket.title || "Untitled ticket"}
+                  return (
+                    <article
+                      key={ticketId}
+                      onClick={() => setSelectedTicket(ticket)}
+                      className="min-w-0 cursor-pointer rounded-xl border border-slate-800 bg-slate-900 p-4 transition hover:border-slate-600"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="mb-1 text-xs text-slate-500">
+                            {ticket.ticket_number ||
+                              ticket.ticket_code ||
+                              (ticketId != null
+                                ? `TCK-${String(ticketId).slice(0, 8)}`
+                                : "—")}
                           </p>
-                          <p className="mt-1 text-xs text-slate-500">
+
+                          <h3 className="break-words font-semibold text-white">
+                            {ticket.title || "Untitled ticket"}
+                          </h3>
+
+                          <p className="mt-1 break-words text-xs text-slate-400">
                             {getProjectName(ticket)}
                           </p>
-                        </td>
+                        </div>
 
-                        <td className="whitespace-nowrap px-5 py-4">
-                          <span className="inline-flex rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300">
+                        <button
+                          type="button"
+                          disabled={deletingId === ticketId}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteTicket(ticket);
+                          }}
+                          className="shrink-0 rounded-lg border border-red-800 px-2.5 py-1.5 text-xs text-red-300 transition hover:bg-red-950 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {deletingId === ticketId
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-800 pt-3">
+                        <div className="min-w-0">
+                          <p className="mb-1 text-xs text-slate-500">
+                            Status
+                          </p>
+                          <p className="break-words text-sm text-blue-300">
                             {getStatusName(ticket)}
-                          </span>
-                        </td>
+                          </p>
+                        </div>
 
-                        <td className="whitespace-nowrap px-5 py-4">
-                          <span className="inline-flex rounded-md bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300">
+                        <div className="min-w-0">
+                          <p className="mb-1 text-xs text-slate-500">
+                            Priority
+                          </p>
+                          <p className="break-words text-sm text-rose-300">
                             {getPriorityName(ticket)}
-                          </span>
-                        </td>
+                          </p>
+                        </div>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-slate-300">
-                          {getEmployeeName(ticket.assigned_to)}
-                        </td>
+                        <div className="min-w-0">
+                          <p className="mb-1 text-xs text-slate-500">
+                            Assignee
+                          </p>
+                          <p className="break-words text-sm text-slate-300">
+                            {getEmployeeName(ticket.assigned_to)}
+                          </p>
+                        </div>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-slate-400">
-                          {ticket.due_date
-                            ? formatDate(ticket.due_date)
-                            : "—"}
-                        </td>
+                        <div className="min-w-0">
+                          <p className="mb-1 text-xs text-slate-500">
+                            Due date
+                          </p>
+                          <p className="text-sm text-slate-300">
+                            {formatDate(ticket.due_date)}
+                          </p>
+                        </div>
+                      </div>
 
-                        <td className="whitespace-nowrap px-5 py-4">
-                          <button
-                            type="button"
-                            disabled={deletingId === ticketId}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleDeleteTicket(ticket);
-                            }}
-                            className="rounded-lg border border-red-800 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-950/60 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {deletingId === ticketId
-                              ? "Deleting..."
-                              : "Delete"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      <p className="mt-3 text-xs text-blue-400">
+                        Tap to view ticket details →
+                      </p>
+                    </article>
+                  );
+                })}
+              </div>
 
-                  {filteredTickets.length === 0 && (
+              {/* Desktop ticket table */}
+              <div className="hidden overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 md:block">
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="border-b border-slate-800 bg-slate-900/80 text-slate-500">
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="px-5 py-10 text-center text-slate-400"
-                      >
-                        {tickets.length === 0
-                          ? "No tickets returned by the API."
-                          : "No tickets match your search or filters."}
-                      </td>
+                      <th className="px-5 py-4 font-medium">ID</th>
+                      <th className="px-5 py-4 font-medium">Ticket</th>
+                      <th className="px-5 py-4 font-medium">Status</th>
+                      <th className="px-5 py-4 font-medium">Priority</th>
+                      <th className="px-5 py-4 font-medium">Assignee</th>
+                      <th className="px-5 py-4 font-medium">Due date</th>
+                      <th className="px-5 py-4 font-medium">Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
+                  </thead>
 
-          {/* Ticket details panel: no internal scrolling */}
-          {selectedTicket && (
-            <aside className="fixed right-5 top-24 z-40 w-[min(440px,calc(100vw-2rem))] rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
+                  <tbody className="divide-y divide-slate-800">
+                    {filteredTickets.map((ticket) => {
+                      const ticketId = getTicketId(ticket);
+
+                      return (
+                        <tr
+                          key={ticketId}
+                          onClick={() => setSelectedTicket(ticket)}
+                          className={`cursor-pointer transition ${
+                            selectedTicketId != null &&
+                            String(selectedTicketId) === String(ticketId)
+                              ? "bg-slate-800"
+                              : "hover:bg-slate-800/50"
+                          }`}
+                        >
+                          <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">
+                            {ticket.ticket_number ||
+                              ticket.ticket_code ||
+                              (ticketId != null
+                                ? `TCK-${String(ticketId).slice(0, 8)}`
+                                : "—")}
+                          </td>
+
+                          <td className="min-w-[200px] px-5 py-4">
+                            <p className="font-semibold text-white">
+                              {ticket.title || "Untitled ticket"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {getProjectName(ticket)}
+                            </p>
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4">
+                            <span className="inline-flex rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-300">
+                              {getStatusName(ticket)}
+                            </span>
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4">
+                            <span className="inline-flex rounded-md bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-300">
+                              {getPriorityName(ticket)}
+                            </span>
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4 text-slate-300">
+                            {getEmployeeName(ticket.assigned_to)}
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4 text-slate-400">
+                            {formatDate(ticket.due_date)}
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4">
+                            <button
+                              type="button"
+                              disabled={deletingId === ticketId}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteTicket(ticket);
+                              }}
+                              className="rounded-lg border border-red-800 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-950/60 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {deletingId === ticketId
+                                ? "Deleting..."
+                                : "Delete"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Responsive ticket details panel */}
+        {selectedTicket && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={() => setSelectedTicket(null)}
+          >
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Ticket details"
+              onClick={(event) => event.stopPropagation()}
+              className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-slate-700 bg-slate-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:inset-x-6 sm:bottom-6 sm:rounded-2xl md:inset-x-auto md:bottom-auto md:right-5 md:top-24 md:w-[440px] md:max-h-[calc(100dvh-8rem)]"
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wider text-blue-400">
                     Ticket details
                   </p>
-                  <h2 className="mt-2 text-xl font-bold text-white">
+                  <h2 className="mt-2 break-words text-xl font-bold text-white">
                     {selectedTicket.title || "Untitled ticket"}
                   </h2>
                 </div>
@@ -624,11 +754,8 @@ export default function TicketsPage() {
                 <button
                   type="button"
                   aria-label="Close ticket details"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setSelectedTicket(null);
-                  }}
-                  className="rounded p-1 text-xl leading-none text-slate-400 hover:bg-slate-800 hover:text-white"
+                  onClick={() => setSelectedTicket(null)}
+                  className="shrink-0 rounded-lg px-2 text-2xl text-slate-400 hover:bg-slate-800 hover:text-white"
                 >
                   ×
                 </button>
@@ -644,7 +771,7 @@ export default function TicketsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
-                <div className="col-span-2">
+                <div className="col-span-2 min-w-0">
                   <p className="mb-1 text-xs text-slate-500">
                     Organization
                   </p>
@@ -653,28 +780,28 @@ export default function TicketsPage() {
                   </p>
                 </div>
 
-                <div className="col-span-2">
+                <div className="col-span-2 min-w-0">
                   <p className="mb-1 text-xs text-slate-500">Project</p>
                   <p className="break-words font-semibold text-slate-200">
                     {getProjectName(selectedTicket)}
                   </p>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1 text-xs text-slate-500">Status</p>
-                  <p className="font-semibold text-blue-300">
+                  <p className="break-words font-semibold text-blue-300">
                     {getStatusName(selectedTicket)}
                   </p>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1 text-xs text-slate-500">Priority</p>
-                  <p className="font-semibold text-purple-300">
+                  <p className="break-words font-semibold text-purple-300">
                     {getPriorityName(selectedTicket)}
                   </p>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1 text-xs text-slate-500">
                     Assigned to
                   </p>
@@ -683,7 +810,7 @@ export default function TicketsPage() {
                   </p>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1 text-xs text-slate-500">
                     Created by
                   </p>
@@ -692,45 +819,43 @@ export default function TicketsPage() {
                   </p>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1 text-xs text-slate-500">Due date</p>
                   <p className="text-slate-200">
                     {formatDate(selectedTicket.due_date)}
                   </p>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1 text-xs text-slate-500">Created at</p>
-                  <p className="text-xs text-slate-300">
+                  <p className="break-words text-xs text-slate-300">
                     {formatDateTime(selectedTicket.created_at)}
                   </p>
                 </div>
 
-                <div className="col-span-2">
+                <div className="col-span-2 min-w-0">
                   <p className="mb-1 text-xs text-slate-500">
                     Last updated
                   </p>
-                  <p className="text-xs text-slate-300">
+                  <p className="break-words text-xs text-slate-300">
                     {formatDateTime(selectedTicket.updated_at)}
                   </p>
                 </div>
               </div>
-
-              
             </aside>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Create ticket modal */}
         {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4">
-            <div className="my-6 w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-6 shadow-2xl">
-              <div className="mb-5 flex items-center justify-between">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-3 pt-4 sm:items-center sm:p-4">
+            <div className="my-auto w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-4 shadow-2xl sm:p-6">
+              <div className="mb-5 flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold">Create Ticket</h2>
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="text-2xl text-slate-400 hover:text-white"
+                  className="shrink-0 rounded-lg px-2 text-2xl text-slate-400 hover:bg-slate-800 hover:text-white"
                   aria-label="Close modal"
                 >
                   ×
@@ -739,10 +864,14 @@ export default function TicketsPage() {
 
               <form onSubmit={handleCreateTicket} className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-sm text-slate-300">
+                  <label
+                    htmlFor="ticket-project"
+                    className="mb-1.5 block text-sm text-slate-300"
+                  >
                     Project *
                   </label>
                   <select
+                    id="ticket-project"
                     name="project_id"
                     value={form.project_id}
                     onChange={updateField}
@@ -764,10 +893,14 @@ export default function TicketsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm text-slate-300">
+                  <label
+                    htmlFor="ticket-title"
+                    className="mb-1.5 block text-sm text-slate-300"
+                  >
                     Ticket title *
                   </label>
                   <input
+                    id="ticket-title"
                     name="title"
                     value={form.title}
                     onChange={updateField}
@@ -778,11 +911,15 @@ export default function TicketsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-sm text-slate-300">
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="ticket-status"
+                      className="mb-1.5 block text-sm text-slate-300"
+                    >
                       Status *
                     </label>
                     <select
+                      id="ticket-status"
                       name="status_id"
                       value={form.status_id}
                       onChange={updateField}
@@ -801,11 +938,15 @@ export default function TicketsPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="mb-1.5 block text-sm text-slate-300">
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="ticket-priority"
+                      className="mb-1.5 block text-sm text-slate-300"
+                    >
                       Priority *
                     </label>
                     <select
+                      id="ticket-priority"
                       name="priority_id"
                       value={form.priority_id}
                       onChange={updateField}
@@ -826,10 +967,14 @@ export default function TicketsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm text-slate-300">
+                  <label
+                    htmlFor="ticket-description"
+                    className="mb-1.5 block text-sm text-slate-300"
+                  >
                     Description
                   </label>
                   <textarea
+                    id="ticket-description"
                     name="description"
                     value={form.description}
                     onChange={updateField}
@@ -840,10 +985,14 @@ export default function TicketsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm text-slate-300">
+                  <label
+                    htmlFor="ticket-assignee"
+                    className="mb-1.5 block text-sm text-slate-300"
+                  >
                     Assigned to
                   </label>
                   <select
+                    id="ticket-assignee"
                     name="assigned_to"
                     value={form.assigned_to}
                     onChange={updateField}
@@ -862,10 +1011,14 @@ export default function TicketsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm text-slate-300">
+                  <label
+                    htmlFor="ticket-due-date"
+                    className="mb-1.5 block text-sm text-slate-300"
+                  >
                     Due date
                   </label>
                   <input
+                    id="ticket-due-date"
                     type="date"
                     name="due_date"
                     value={form.due_date}
@@ -874,11 +1027,11 @@ export default function TicketsPage() {
                   />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-3">
+                <div className="flex flex-col-reverse gap-3 pt-3 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+                    className="w-full rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-slate-800 sm:w-auto"
                   >
                     Cancel
                   </button>
@@ -886,7 +1039,7 @@ export default function TicketsPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {submitting ? "Creating..." : "Create Ticket"}
                   </button>
@@ -899,3 +1052,5 @@ export default function TicketsPage() {
     </div>
   );
 }
+     
+

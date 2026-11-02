@@ -12,6 +12,7 @@ import Tickets from "./pages/ticketsPage.jsx";
 import Preferences from "./pages/preferencesPage.jsx";
 import AcceptInvite from "./pages/acceptInvitePage.jsx";
 import InvitesPage from "./pages/invitesPage";
+import ProfilePage from "./pages/profilePage.jsx";
 
 // App component
 function App() {
@@ -28,6 +29,7 @@ function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/tickets" element={<Tickets />} />
            <Route path="/invites" element={<InvitesPage />} />
+           <Route path="/profile" element={<ProfilePage />} />
            <Route path="/preferences" element={<Preferences />} />
           <Route path="/thank-you" element={<ThankYouPage />} />
          ...
