@@ -1,494 +1,901 @@
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const initialTickets = [
-  {
-    id: "TCK-1042",
-    title: "Checkout page fails on Safari for logged-out users",
-    project: "Storefront Web",
-    status: "In progress",
-    priority: "High",
-    assignee: "Dev Kapoor",
-    initials: "DK",
-    avatar: "bg-amber-500",
-    due: "Sep 23",
-  },
-  {
-    id: "TCK-1039",
-    title: "Warehouse scan gun loses connection intermittently",
-    project: "Warehouse Portal",
-    status: "Open",
-    priority: "Critical",
-    assignee: "Rosa Silva",
-    initials: "RS",
-    avatar: "bg-emerald-500",
-    due: "Sep 22",
-  },
-  {
-    id: "TCK-1035",
-    title: "Add bulk CSV export for shipment history",
-    project: "Warehouse Portal",
-    status: "Open",
-    priority: "Medium",
-    assignee: "Mara Patel",
-    initials: "MP",
-    avatar: "bg-blue-400",
-    due: "Sep 27",
-  },
-  {
-    id: "TCK-1031",
-    title: "Dark mode toggle resets on page refresh",
-    project: "Mobile App",
-    status: "Resolved",
-    priority: "Low",
-    assignee: "You",
-    initials: "YO",
-    avatar: "bg-blue-600",
-    due: "Sep 20",
-  },
-  {
-    id: "TCK-1028",
-    title: "Push notification tokens not refreshing after login",
-    project: "Mobile App",
-    status: "In progress",
-    priority: "High",
-    assignee: "Dev Kapoor",
-    initials: "DK",
-    avatar: "bg-amber-500",
-    due: "Sep 24",
-  },
-  {
-    id: "TCK-1024",
-    title: "Onboarding tour skips step 3 on slow connections",
-    project: "Storefront Web",
-    status: "Closed",
-    priority: "Medium",
-    assignee: "Rosa Silva",
-    initials: "RS",
-    avatar: "bg-emerald-500",
-    due: "Sep 15",
-  },
-  {
-    id: "TCK-1019",
-    title: "Invoice PDF totals off by rounding on multi-currency orders",
-    project: "Billing",
-    status: "Open",
-    priority: "Critical",
-    assignee: "Mara Patel",
-    initials: "MP",
-    avatar: "bg-blue-400",
-    due: "Sep 22",
-  },
-  {
-    id: "TCK-1012",
-    title: "Add SSO support for Northwind sub-org accounts",
-    project: "Platform",
-    status: "In progress",
-    priority: "Medium",
-    assignee: "You",
-    initials: "YO",
-    avatar: "bg-blue-600",
-    due: "Sep 30",
-  },
-];
+import { getProjects } from "../api/project.js";
+import {
+  getTickets,
+  createTicket as createTicketAPI,
+  deleteTicket,
+} from "../api/tickets.js";
+import { getStatuses } from "../api/statuses.js";
+import { getPriorities } from "../api/priorities.js";
+import { getEmployees } from "../api/employees.js";
 
-const statuses = ["All", "Open", "In progress", "Resolved", "Closed"];
-
-const statusStyles = {
-  Open: "bg-blue-500/15 text-blue-300",
-  "In progress": "bg-amber-500/15 text-amber-400",
-  Resolved: "bg-emerald-500/15 text-emerald-400",
-  Closed: "bg-slate-500/15 text-slate-400",
+const initialForm = {
+  project_id: "",
+  title: "",
+  description: "",
+  status_id: "",
+  priority_id: "",
+  assigned_to: "",
+  due_date: "",
 };
 
-const priorityStyles = {
-  Critical: "bg-red-500/10 text-red-400",
-  High: "bg-amber-500/10 text-amber-400",
-  Medium: "bg-blue-500/10 text-blue-300",
-  Low: "bg-slate-500/10 text-slate-400",
-};
+function getArray(response, keys = []) {
+  if (Array.isArray(response)) return response;
 
-export default function Tickets() {
-  const [tickets, setTickets] = useState(initialTickets);
-  const [activeStatus, setActiveStatus] = useState("All");
+  for (const key of keys) {
+    if (Array.isArray(response?.[key])) return response[key];
+  }
+
+  if (Array.isArray(response?.data)) return response.data;
+
+  for (const key of keys) {
+    if (Array.isArray(response?.data?.[key])) {
+      return response.data[key];
+    }
+  }
+
+  return [];
+}
+
+function getErrorMessage(error) {
+  return (
+    error?.response?.data?.message ||
+    error?.message ||
+    "Something went wrong."
+  );
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value).slice(0, 10);
+  }
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function TicketsPage() {
+  const [tickets, setTickets] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [statuses, setStatuses] = useState([]);
+  const [priorities, setPriorities] = useState([]);
+  const [employees, setEmployees] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const [pageError, setPageError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+
   const [search, setSearch] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("All");
-  const [projectFilter, setProjectFilter] = useState("All");
-  const [assigneeFilter, setAssigneeFilter] = useState("All");
-  const [showModal, setShowModal] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newProject, setNewProject] = useState("Storefront Web");
-  const [newPriority, setNewPriority] = useState("Medium");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
+  const [projectFilter, setProjectFilter] = useState("");
+
+  const [statusTab, setStatusTab] = useState("All");
+  const [form, setForm] = useState(initialForm);
+
+  const loadData = async () => {
+    setLoading(true);
+    setPageError("");
+
+    try {
+      const [
+        ticketResponse,
+        projectResponse,
+        statusResponse,
+        priorityResponse,
+        employeeResponse,
+      ] = await Promise.all([
+        getTickets(),
+        getProjects(),
+        getStatuses(),
+        getPriorities(),
+        getEmployees(),
+      ]);
+
+      setTickets(getArray(ticketResponse, ["tickets"]));
+      setProjects(getArray(projectResponse, ["projects"]));
+      setStatuses(getArray(statusResponse, ["statuses"]));
+      setPriorities(getArray(priorityResponse, ["priorities"]));
+      setEmployees(getArray(employeeResponse, ["employees"]));
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Convert user IDs to employee names.
+  const getEmployeeName = (userId) => {
+    if (!userId) return "Unassigned";
+
+    const employee = employees.find(
+      (item) => item.user_id === userId
+    );
+
+    return employee?.name || "Employee not found";
+  };
+
+  const getStatusName = (ticket) => {
+    if (typeof ticket.status === "string") return ticket.status;
+
+    return (
+      ticket.status?.name ||
+      statuses.find(
+        (item) => item.status_id === ticket.status_id
+      )?.name ||
+      "Unknown"
+    );
+  };
+
+  const getPriorityName = (ticket) => {
+    if (typeof ticket.priority === "string") return ticket.priority;
+
+    return (
+      ticket.priority?.name ||
+      priorities.find(
+        (item) => item.priority_id === ticket.priority_id
+      )?.name ||
+      "Unknown"
+    );
+  };
+
+  const getProjectName = (ticket) => {
+    return (
+      ticket.project?.name ||
+      ticket.project?.project_name ||
+      projects.find(
+        (item) => item.project_id === ticket.project_id
+      )?.name ||
+      projects.find(
+        (item) => item.project_id === ticket.project_id
+      )?.project_name ||
+      "Unknown"
+    );
+  };
+
+  const getOrganizationName = (ticket) => {
+    return (
+      ticket.organization?.name ||
+      ticket.organization?.organization_name ||
+      ticket.organization_name ||
+      "Organization name unavailable"
+    );
+  };
+
+  const getTicketId = (ticket) => {
+    return ticket.ticket_id || ticket.id;
+  };
 
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
-      const matchesStatus =
-        activeStatus === "All" || ticket.status === activeStatus;
+      const searchText = search.toLowerCase();
 
-      const term = search.trim().toLowerCase();
-      const matchesSearch =
-        !term ||
-        [ticket.id, ticket.title, ticket.project, ticket.assignee]
-          .some((value) => value.toLowerCase().includes(term));
+      const matchesSearch = [
+        ticket.title,
+        ticket.description,
+        getProjectName(ticket),
+        getEmployeeName(ticket.assigned_to),
+        getEmployeeName(ticket.created_by),
+        getStatusName(ticket),
+        getPriorityName(ticket),
+      ].some((value) =>
+        String(value || "").toLowerCase().includes(searchText)
+      );
+
+      const matchesStatusFilter =
+        !statusFilter ||
+        ticket.status_id === statusFilter ||
+        ticket.status?.status_id === statusFilter ||
+        getStatusName(ticket) === statusFilter;
+
+      const matchesPriorityFilter =
+        !priorityFilter ||
+        ticket.priority_id === priorityFilter ||
+        ticket.priority?.priority_id === priorityFilter ||
+        getPriorityName(ticket) === priorityFilter;
+
+      const matchesProjectFilter =
+        !projectFilter ||
+        ticket.project_id === projectFilter ||
+        ticket.project?.project_id === projectFilter;
+
+      const normalizedStatus = getStatusName(ticket).toLowerCase();
+
+      const matchesTab =
+        statusTab === "All" ||
+        (statusTab === "Open" && normalizedStatus === "open") ||
+        (statusTab === "In Progress" &&
+          ["in progress", "in-progress", "in_progress"].includes(
+            normalizedStatus
+          )) ||
+        (statusTab === "Resolved" &&
+          normalizedStatus === "resolved") ||
+        (statusTab === "Closed" &&
+          normalizedStatus === "closed");
 
       return (
-        matchesStatus &&
         matchesSearch &&
-        (priorityFilter === "All" || ticket.priority === priorityFilter) &&
-        (projectFilter === "All" || ticket.project === projectFilter) &&
-        (assigneeFilter === "All" || ticket.assignee === assigneeFilter)
+        matchesStatusFilter &&
+        matchesPriorityFilter &&
+        matchesProjectFilter &&
+        matchesTab
       );
     });
   }, [
     tickets,
-    activeStatus,
+    projects,
+    statuses,
+    priorities,
+    employees,
     search,
+    statusFilter,
     priorityFilter,
     projectFilter,
-    assigneeFilter,
+    statusTab,
   ]);
 
-  function createTicket(event) {
+  const updateField = (event) => {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleCreateTicket = async (event) => {
     event.preventDefault();
+    setPageError("");
+    setSuccessMessage("");
 
-    const title = newTitle.trim();
-    if (!title) return;
+    if (!form.project_id || !form.status_id || !form.priority_id) {
+      setPageError("Please select a project, status, and priority.");
+      return;
+    }
 
-    const ticket = {
-      id: `TCK-${Math.max(...tickets.map((item) => Number(item.id.slice(4)))) + 1}`,
-      title,
-      project: newProject,
-      status: "Open",
-      priority: newPriority,
-      assignee: "You",
-      initials: "YO",
-      avatar: "bg-blue-600",
-      due: "Not set",
+    if (!form.title.trim()) {
+      setPageError("Please enter a ticket title.");
+      return;
+    }
+
+    const payload = {
+      project_id: form.project_id,
+      title: form.title.trim(),
+      description: form.description.trim() || "",
+      status_id: form.status_id,
+      priority_id: form.priority_id,
+      assigned_to: form.assigned_to || null,
+      due_date: form.due_date || null,
     };
 
-    setTickets((current) => [ticket, ...current]);
-    setActiveStatus("All");
-    setSearch("");
-    setPriorityFilter("All");
-    setProjectFilter("All");
-    setAssigneeFilter("All");
-    setShowModal(false);
-    setNewTitle("");
-  }
+    setSubmitting(true);
 
-  const filterClass =
-    "rounded-lg border border-[#202c46] bg-[#111c34] px-3 py-2 text-xs text-slate-300 outline-none focus:border-blue-500";
+    try {
+      await createTicketAPI(payload);
+
+      setSuccessMessage("Ticket created successfully.");
+      setForm(initialForm);
+      setModalOpen(false);
+
+      await loadData();
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteTicket = async (ticket) => {
+    // Prevent a button click from triggering the ticket-row click.
+    const ticketId = getTicketId(ticket);
+
+    if (!ticketId) {
+      setPageError("Cannot delete this ticket: ticket ID is missing.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${ticket.title || "this ticket"}"?`
+    );
+
+    if (!confirmed) return;
+
+    setPageError("");
+    setSuccessMessage("");
+    setDeletingId(ticketId);
+
+    try {
+      await deleteTicket(ticketId);
+
+      setTickets((previous) =>
+        previous.filter(
+          (item) => getTicketId(item) !== ticketId
+        )
+      );
+
+      setSelectedTicket((previous) =>
+        previous && getTicketId(previous) === ticketId
+          ? null
+          : previous
+      );
+
+      setSuccessMessage("Ticket deleted successfully.");
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const inputClass =
+    "w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500";
+
+  const tabClass = (tab) =>
+    `rounded-lg border px-4 py-2.5 text-sm transition ${
+      statusTab === tab
+        ? "border-blue-700 bg-blue-950 text-blue-300"
+        : "border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800"
+    }`;
+
+  const selectedTicketId = selectedTicket
+    ? getTicketId(selectedTicket)
+    : null;
 
   return (
-    <div className="min-h-full bg-[#080d18] text-slate-100">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Tickets
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {tickets.length === 8
-              ? "86 tickets across 5 projects"
-              : `${tickets.length} sample tickets · 5 projects`}
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-950 p-4 text-slate-100 sm:p-6">
+      <div className="mx-auto max-w-[1600px]">
+        {/* Header */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Tickets</h1>
+            <p className="mt-1 text-sm text-slate-400">
+              {tickets.length} tickets across {projects.length} projects
+            </p>
+          </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-[#4d7cff] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <span className="text-lg leading-none">+</span> New ticket
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="mt-6 flex items-center gap-3 rounded-lg border border-[#202c46] bg-[#101a30] px-3 py-2.5 sm:max-w-md">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-          className="h-4 w-4 shrink-0 text-slate-500"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="7" />
-          <path d="m16 16 4 4" />
-        </svg>
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search tickets, projects, people..."
-          aria-label="Search tickets, projects, and people"
-          className="w-full bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-500"
-        />
-        {search && (
           <button
-            onClick={() => setSearch("")}
-            className="text-xs text-slate-400 hover:text-white"
-            aria-label="Clear search"
+            type="button"
+            onClick={() => {
+              setPageError("");
+              setSuccessMessage("");
+              setForm(initialForm);
+              setModalOpen(true);
+            }}
+            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
           >
-            Clear
+            + New ticket
           </button>
-        )}
-      </div>
-
-      {/* Status tabs and filters */}
-      <div className="mt-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-wrap gap-2" aria-label="Filter by status">
-          {statuses.map((status) => (
-            <button
-              key={status}
-              onClick={() => setActiveStatus(status)}
-              aria-pressed={activeStatus === status}
-              className={`rounded-lg border px-3.5 py-2 text-xs font-medium transition ${
-                activeStatus === status
-                  ? "border-[#263d70] bg-[#20335b] text-blue-300"
-                  : "border-[#1b2740] bg-[#101a30] text-slate-400 hover:bg-[#1a2742] hover:text-white"
-              }`}
-            >
-              {status}
-            </button>
-          ))}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <select
-            aria-label="Filter by priority"
-            value={priorityFilter}
-            onChange={(event) => setPriorityFilter(event.target.value)}
-            className={filterClass}
-          >
-            <option value="All">Priority: All</option>
-            {["Critical", "High", "Medium", "Low"].map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
+        {/* Messages */}
+        {pageError && (
+          <div className="mb-4 rounded-lg border border-red-800 bg-red-950/50 p-3 text-sm text-red-300">
+            {pageError}
+          </div>
+        )}
 
-          <select
-            aria-label="Filter by project"
-            value={projectFilter}
-            onChange={(event) => setProjectFilter(event.target.value)}
-            className={filterClass}
-          >
-            <option value="All">Project: All</option>
-            {["Storefront Web", "Warehouse Portal", "Mobile App", "Billing", "Platform"].map(
-              (value) => (
-                <option key={value}>{value}</option>
+        {successMessage && (
+          <div className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-300">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Status tabs and filters */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            {["All", "Open", "In Progress", "Resolved", "Closed"].map(
+              (tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setStatusTab(tab)}
+                  className={tabClass(tab)}
+                >
+                  {tab}
+                </button>
               )
             )}
-          </select>
+          </div>
 
-          <select
-            aria-label="Filter by assignee"
-            value={assigneeFilter}
-            onChange={(event) => setAssigneeFilter(event.target.value)}
-            className={filterClass}
-          >
-            <option value="All">Assignee: All</option>
-            {["Dev Kapoor", "Rosa Silva", "Mara Patel", "You"].map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Tickets table */}
-      <div className="mt-5 overflow-hidden rounded-xl border border-[#202c46] bg-[#101b33]">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-left">
-            <thead className="bg-[#101a30] text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-5 py-4 font-semibold">ID</th>
-                <th className="px-5 py-4 font-semibold">Ticket</th>
-                <th className="px-5 py-4 font-semibold">Status</th>
-                <th className="px-5 py-4 font-semibold">Priority</th>
-                <th className="px-5 py-4 font-semibold">Assignee</th>
-                <th className="px-5 py-4 font-semibold">Due</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-[#202c46]">
-              {filteredTickets.map((ticket) => (
-                <tr
-                  key={ticket.id}
-                  className="transition hover:bg-[#172440]"
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 lg:w-auto">
+            <select
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value)}
+              className={inputClass}
+            >
+              <option value="">All priorities</option>
+              {priorities.map((priority) => (
+                <option
+                  key={priority.priority_id}
+                  value={priority.priority_id}
                 >
-                  <td className="whitespace-nowrap px-5 py-5 font-mono text-xs text-slate-500">
-                    {ticket.id}
-                  </td>
-
-                  <td className="max-w-sm px-5 py-4">
-                    <p className="text-[13px] font-medium leading-5 text-slate-100">
-                      {ticket.title}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {ticket.project}
-                    </p>
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[ticket.status]}`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {ticket.status}
-                    </span>
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <span
-                      className={`rounded-md px-2 py-1 text-[11px] font-semibold ${priorityStyles[ticket.priority]}`}
-                    >
-                      {ticket.priority}
-                    </span>
-                  </td>
-
-                  <td className="whitespace-nowrap px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white ${ticket.avatar}`}
-                      >
-                        {ticket.initials}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {ticket.assignee}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">
-                    {ticket.due}
-                  </td>
-                </tr>
+                  {priority.name}
+                </option>
               ))}
-            </tbody>
-          </table>
+            </select>
 
-          {filteredTickets.length === 0 && (
-            <div className="px-5 py-16 text-center">
-              <p className="text-sm font-medium text-slate-300">
-                No tickets found
+            <select
+              value={projectFilter}
+              onChange={(event) => setProjectFilter(event.target.value)}
+              className={inputClass}
+            >
+              <option value="">All projects</option>
+              {projects.map((project) => (
+                <option
+                  key={project.project_id}
+                  value={project.project_id}
+                >
+                  {project.name ||
+                    project.project_name ||
+                    "Unnamed project"}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className={inputClass}
+            >
+              <option value="">All statuses</option>
+              {statuses.map((status) => (
+                <option
+                  key={status.status_id}
+                  value={status.status_id}
+                >
+                  {status.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="mb-5">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search tickets, projects, assignees..."
+            className={`${inputClass} max-w-xl`}
+          />
+        </div>
+
+        {/* Ticket table and details card */}
+        <div className="relative">
+          <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
+            {loading ? (
+              <p className="p-8 text-center text-slate-400">
+                Loading tickets...
               </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Try another search term or change your filters.
-              </p>
-              <button
-                onClick={() => {
-                  setActiveStatus("All");
-                  setSearch("");
-                  setPriorityFilter("All");
-                  setProjectFilter("All");
-                  setAssigneeFilter("All");
-                }}
-                className="mt-4 text-xs font-medium text-blue-400 hover:text-blue-300"
-              >
-                Clear all filters
-              </button>
-            </div>
+            ) : (
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead className="border-b border-slate-800 bg-slate-900/80 text-slate-500">
+                  <tr>
+                    <th className="px-5 py-4 font-medium">ID</th>
+                    <th className="px-5 py-4 font-medium">Ticket</th>
+                    <th className="px-5 py-4 font-medium">Status</th>
+                    <th className="px-5 py-4 font-medium">Priority</th>
+                    <th className="px-5 py-4 font-medium">Assignee</th>
+                    <th className="px-5 py-4 font-medium">Due date</th>
+                    <th className="px-5 py-4 font-medium">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-800">
+                  {filteredTickets.map((ticket) => {
+                    const ticketId = getTicketId(ticket);
+                    const isSelected = selectedTicketId === ticketId;
+
+                    return (
+                      <tr
+                        key={ticketId}
+                        onClick={() => setSelectedTicket(ticket)}
+                        className={`cursor-pointer transition ${
+                          isSelected
+                            ? "bg-slate-800/80"
+                            : "hover:bg-slate-800/50"
+                        }`}
+                      >
+                        <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">
+                          {ticket.ticket_number ||
+                            ticket.ticket_code ||
+                            (ticketId
+                              ? `TCK-${String(ticketId).slice(0, 8)}`
+                              : "—")}
+                        </td>
+
+                        <td className="min-w-[250px] px-5 py-4">
+                          <p className="font-semibold text-white">
+                            {ticket.title || "Untitled ticket"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {getProjectName(ticket)}
+                          </p>
+                        </td>
+
+                        <td className="whitespace-nowrap px-5 py-4">
+                          <span className="inline-flex rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300">
+                            {getStatusName(ticket)}
+                          </span>
+                        </td>
+
+                        <td className="whitespace-nowrap px-5 py-4">
+                          <span className="inline-flex rounded-md bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300">
+                            {getPriorityName(ticket)}
+                          </span>
+                        </td>
+
+                        <td className="whitespace-nowrap px-5 py-4 text-slate-300">
+                          {getEmployeeName(ticket.assigned_to)}
+                        </td>
+
+                        <td className="whitespace-nowrap px-5 py-4 text-slate-400">
+                          {ticket.due_date
+                            ? formatDate(ticket.due_date)
+                            : "—"}
+                        </td>
+
+                        <td className="whitespace-nowrap px-5 py-4">
+                          <button
+                            type="button"
+                            disabled={deletingId === ticketId}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDeleteTicket(ticket);
+                            }}
+                            className="rounded-lg border border-red-800 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-950/60 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingId === ticketId
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredTickets.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-5 py-10 text-center text-slate-400"
+                      >
+                        {tickets.length === 0
+                          ? "No tickets returned by the API."
+                          : "No tickets match your search or filters."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Ticket details panel: no internal scrolling */}
+          {selectedTicket && (
+            <aside className="fixed right-5 top-24 z-40 w-[min(440px,calc(100vw-2rem))] rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-400">
+                    Ticket details
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold text-white">
+                    {selectedTicket.title || "Untitled ticket"}
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="Close ticket details"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedTicket(null);
+                  }}
+                  className="rounded p-1 text-xl leading-none text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="mb-4 border-b border-slate-700 pb-4">
+                <p className="mb-1 text-xs text-slate-500">
+                  Description
+                </p>
+                <p className="whitespace-pre-wrap break-words text-sm text-slate-200">
+                  {selectedTicket.description || "No description provided."}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
+                <div className="col-span-2">
+                  <p className="mb-1 text-xs text-slate-500">
+                    Organization
+                  </p>
+                  <p className="break-words font-semibold text-slate-200">
+                    {getOrganizationName(selectedTicket)}
+                  </p>
+                </div>
+
+                <div className="col-span-2">
+                  <p className="mb-1 text-xs text-slate-500">Project</p>
+                  <p className="break-words font-semibold text-slate-200">
+                    {getProjectName(selectedTicket)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">Status</p>
+                  <p className="font-semibold text-blue-300">
+                    {getStatusName(selectedTicket)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">Priority</p>
+                  <p className="font-semibold text-purple-300">
+                    {getPriorityName(selectedTicket)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">
+                    Assigned to
+                  </p>
+                  <p className="break-words font-semibold text-slate-200">
+                    {getEmployeeName(selectedTicket.assigned_to)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">
+                    Created by
+                  </p>
+                  <p className="break-words font-semibold text-slate-200">
+                    {getEmployeeName(selectedTicket.created_by)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">Due date</p>
+                  <p className="text-slate-200">
+                    {formatDate(selectedTicket.due_date)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">Created at</p>
+                  <p className="text-xs text-slate-300">
+                    {formatDateTime(selectedTicket.created_at)}
+                  </p>
+                </div>
+
+                <div className="col-span-2">
+                  <p className="mb-1 text-xs text-slate-500">
+                    Last updated
+                  </p>
+                  <p className="text-xs text-slate-300">
+                    {formatDateTime(selectedTicket.updated_at)}
+                  </p>
+                </div>
+              </div>
+
+              
+            </aside>
           )}
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-[#202c46] px-5 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            Showing {filteredTickets.length} of {tickets.length} sample tickets
-          </span>
-          <span>Ticket Tracking Tool</span>
-        </div>
-      </div>
-
-      {/* New ticket modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setShowModal(false);
-          }}
-        >
-          <form
-            onSubmit={createTicket}
-            className="w-full max-w-lg rounded-2xl border border-[#263451] bg-[#0e1729] p-6 shadow-2xl"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-white">
-                  Create a ticket
-                </h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Add a new issue to your workspace.
-                </p>
+        {/* Create ticket modal */}
+        {modalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4">
+            <div className="my-6 w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-6 shadow-2xl">
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-xl font-bold">Create Ticket</h2>
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="text-2xl text-slate-400 hover:text-white"
+                  aria-label="Close modal"
+                >
+                  ×
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                aria-label="Close dialog"
-                className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                ×
-              </button>
+
+              <form onSubmit={handleCreateTicket} className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm text-slate-300">
+                    Project *
+                  </label>
+                  <select
+                    name="project_id"
+                    value={form.project_id}
+                    onChange={updateField}
+                    required
+                    className={inputClass}
+                  >
+                    <option value="">Select project</option>
+                    {projects.map((project) => (
+                      <option
+                        key={project.project_id}
+                        value={project.project_id}
+                      >
+                        {project.name ||
+                          project.project_name ||
+                          "Unnamed project"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm text-slate-300">
+                    Ticket title *
+                  </label>
+                  <input
+                    name="title"
+                    value={form.title}
+                    onChange={updateField}
+                    required
+                    placeholder="Enter ticket title"
+                    className={inputClass}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm text-slate-300">
+                      Status *
+                    </label>
+                    <select
+                      name="status_id"
+                      value={form.status_id}
+                      onChange={updateField}
+                      required
+                      className={inputClass}
+                    >
+                      <option value="">Select status</option>
+                      {statuses.map((status) => (
+                        <option
+                          key={status.status_id}
+                          value={status.status_id}
+                        >
+                          {status.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm text-slate-300">
+                      Priority *
+                    </label>
+                    <select
+                      name="priority_id"
+                      value={form.priority_id}
+                      onChange={updateField}
+                      required
+                      className={inputClass}
+                    >
+                      <option value="">Select priority</option>
+                      {priorities.map((priority) => (
+                        <option
+                          key={priority.priority_id}
+                          value={priority.priority_id}
+                        >
+                          {priority.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm text-slate-300">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={form.description}
+                    onChange={updateField}
+                    rows={3}
+                    placeholder="Describe the issue or task"
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm text-slate-300">
+                    Assigned to
+                  </label>
+                  <select
+                    name="assigned_to"
+                    value={form.assigned_to}
+                    onChange={updateField}
+                    className={inputClass}
+                  >
+                    <option value="">Unassigned</option>
+                    {employees.map((employee) => (
+                      <option
+                        key={employee.user_id}
+                        value={employee.user_id}
+                      >
+                        {employee.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm text-slate-300">
+                    Due date
+                  </label>
+                  <input
+                    type="date"
+                    name="due_date"
+                    value={form.due_date}
+                    onChange={updateField}
+                    className={inputClass}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitting ? "Creating..." : "Create Ticket"}
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <label className="mt-6 block text-sm font-medium text-slate-300">
-              Ticket title
-              <input
-                autoFocus
-                required
-                maxLength={180}
-                value={newTitle}
-                onChange={(event) => setNewTitle(event.target.value)}
-                placeholder="Describe the issue..."
-                className="mt-2 w-full rounded-lg border border-[#263451] bg-[#101b30] px-3 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
-              />
-            </label>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-300">
-                Project
-                <select
-                  value={newProject}
-                  onChange={(event) => setNewProject(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[#263451] bg-[#101b30] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
-                >
-                  {["Storefront Web", "Warehouse Portal", "Mobile App", "Billing", "Platform"].map(
-                    (value) => (
-                      <option key={value}>{value}</option>
-                    )
-                  )}
-                </select>
-              </label>
-
-              <label className="block text-sm font-medium text-slate-300">
-                Priority
-                <select
-                  value={newPriority}
-                  onChange={(event) => setNewPriority(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[#263451] bg-[#101b30] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
-                >
-                  {["Critical", "High", "Medium", "Low"].map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-7 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="rounded-lg border border-[#263451] px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-[#4d7cff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500"
-              >
-                Create ticket
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
