@@ -1,398 +1,176 @@
-// src/pages/profilePage.jsx
 
-import { useEffect, useState } from "react";
-import { getMyProfile, updateMyProfile } from "../api/profile.js";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { tokenStorage } from "../utils/tokenStorage";
 
-const inputClass =
-  "w-full rounded-xl border border-[#263653] bg-[#0b1427] px-4 py-3 text-sm text-slate-100 outline-none focus:border-blue-500 disabled:opacity-70";
+const API = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const COLORS = ["#4a7cff", "#2ecf8e", "#f5a623", "#a78bfa", "#fb7185", "#38bdf8"];
+const HIDDEN = /token|password|secret|session|hash|refresh/i;
+const SHOWN = ["user_id", "id", "sub", "name", "full_name", "email", "role", "user_role", "organization_name", "organization", "org_name", "created_at", "createdAt"];
 
-const labelClass = "mb-2 block text-xs font-semibold text-slate-400";
+const colorFor = (t = "") => COLORS[[...t].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORS.length];
+const cap = (t = "") => t.replace(/[._-]+/g, " ").split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+const initials = (n = "") => {
+  const p = n.split(/\s+/).filter(Boolean);
+  return (p.length > 1 ? p[0][0] + p[p.length - 1][0] : (p[0] || "U").slice(0, 2)).toUpperCase();
+};
+const fmt = (v) => {
+  const d = v && new Date(v);
+  return d && !isNaN(d) ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+};
+const text = (v) => (v == null || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
+const list = (v) => (Array.isArray(v) ? v : v && typeof v === "object" ? Object.values(v).map(list).find((a) => a.length) || [] : []);
+const idOf = (m) => (typeof m === "string" ? m : m?.user_id ?? m?.id ?? m?.user?.id);
 
-function normalizeProfile(response) {
-  const root = response?.data ?? response?.profile ?? response?.user ?? response ?? {};
-  const user = root?.user ?? root?.profile ?? root;
-  const organization = user?.organization ?? user?.organisation ?? {};
-
+function getUser() {
+  const u = tokenStorage.getUser() || {};
+  const email = u.email ?? "";
+  const role = String(u.role ?? u.user_role ?? "EMPLOYEE").toUpperCase();
   return {
-    fullName:
-      user?.full_name ?? user?.fullName ?? user?.name ?? user?.username ?? "",
-    email: user?.email ?? user?.email_address ?? "",
-    organizationName:
-      user?.organization_name ??
-      user?.organizationName ??
-      user?.organisation_name ??
-      organization?.name ??
-      "",
-    role: user?.role ?? user?.user_role ?? "",
-    createdAt: user?.created_at ?? user?.createdAt ?? "",
+    id: u.user_id ?? u.id ?? u.sub,
+    email,
+    name: cap(u.name ?? u.full_name ?? email.split("@")[0]) || "Your Account",
+    admin: role === "ADMIN",
+    org: u.organization_name ?? u.organization?.name ?? u.org_name ?? "",
+    since: u.created_at ?? u.createdAt,
+    extra: Object.entries(u).filter(([k]) => !SHOWN.includes(k) && !HIDDEN.test(k)).map(([k, v]) => [cap(k.replace(/([a-z])([A-Z])/g, "$1 $2")), text(v)]),
   };
 }
 
-function formatDate(value) {
-  if (!value) return "Not provided";
-
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(undefined, {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-}
-
 export default function ProfilePage() {
-  const [profile, setProfile] = useState(null);
-  const [draft, setDraft] = useState({
-    fullName: "",
-    organizationName: "",
-  });
-  const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
+  const user = useMemo(getUser, []);
+  const [projects, setProjects] = useState(null);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadProfile() {
-      setLoading(true);
-      setError("");
-
-      try {
-        const response = await getMyProfile();
-        const user = normalizeProfile(response);
-
-        if (active) {
-          setProfile(user);
-          setDraft({
-            fullName: user.fullName,
-            organizationName: user.organizationName,
-          });
-        }
-      } catch (err) {
-        if (active) {
-          setError(
-            err?.message || "Unable to load your profile. Please try again."
-          );
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    loadProfile();
-
-    return () => {
-      active = false;
-    };
+    const token = tokenStorage.getAccessToken();
+    fetch(`${API}/api/projects`, { headers: { Accept: "application/json", ...(token && { Authorization: `Bearer ${token}` }) } })
+      .then(async (res) => {
+        if (res.status === 401) return logout();
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.message || `Could not load projects (HTTP ${res.status}).`);
+        setProjects(list(body).map((p) => ({
+          id: p.project_id ?? p.id,
+          name: p.name ?? p.project_name ?? "Untitled project",
+          desc: p.description ?? "",
+          date: p.created_at ?? p.createdAt,
+          members: list(p.members ?? p.project_members ?? p.member_ids),
+        })));
+      })
+      .catch((e) => setError(e.message));
+    // eslint-disable-next-line
   }, []);
 
-  function startEditing() {
-    setDraft({
-      fullName: profile.fullName,
-      organizationName: profile.organizationName,
-    });
-    setError("");
-    setSuccess("");
-    setEditing(true);
-  }
+  const logout = () => {
+    tokenStorage.clearSession();
+    navigate("/", { replace: true });
+  };
 
-  function cancelEditing() {
-    setDraft({
-      fullName: profile.fullName,
-      organizationName: profile.organizationName,
-    });
-    setEditing(false);
-    setError("");
-  }
+  const mine = (projects || []).filter((p) => p.members.some((m) => String(idOf(m)) === String(user.id)));
+  const color = colorFor(user.email || user.name);
+  const role = user.admin ? "Admin" : "Employee";
 
-  async function handleSave(event) {
-    event.preventDefault();
-    setError("");
-    setSuccess("");
+  const rows = [
+    ["Full name", user.name],
+    ["Email", user.email || "—"],
+    ["Role", role],
+    ["Organization", user.org || "—"],
+    ["Member since", fmt(user.since)],
+    ...user.extra,
+  ];
 
-    const fullName = draft.fullName.trim();
-    const organizationName = draft.organizationName.trim();
+  const copyId = () => navigator.clipboard?.writeText(String(user.id)).then(() => {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  });
 
-    if (!fullName) {
-      setError("Please enter your full name.");
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      const response = await updateMyProfile({
-        fullName,
-        organizationName,
-      });
-
-      // Use the updated values returned by the API, when available.
-      const returnedProfile = normalizeProfile(response);
-
-      setProfile((current) => ({
-        ...current,
-        fullName: returnedProfile.fullName || fullName,
-        organizationName:
-          returnedProfile.organizationName || organizationName,
-        email: returnedProfile.email || current.email,
-        role: returnedProfile.role || current.role,
-        createdAt: returnedProfile.createdAt || current.createdAt,
-      }));
-
-      setEditing(false);
-      setSuccess("Your profile has been updated successfully.");
-    } catch (err) {
-      setError(
-        err?.message || "Unable to save your changes. Please try again."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="text-sm text-slate-400">Loading profile...</div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <section className="rounded-2xl border border-[#1f2d48] bg-[#101b31] p-6 text-slate-100">
-        <h1 className="text-2xl font-bold">My Profile</h1>
-        <p className="mt-3 text-sm text-rose-300">{error}</p>
-        <p className="mt-2 text-sm text-slate-400">
-          Check that your backend profile endpoint is configured correctly.
-        </p>
-      </section>
-    );
-  }
-
-  const initials = (profile.fullName || profile.email || "U")
-    .split(/[\s@]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join("");
+  const card = "rounded-xl border border-[#202c46] bg-[#101a2e]";
+  const head = "flex items-center justify-between gap-3 border-b border-[#202c46] px-5 py-3.5";
 
   return (
-    <main className="min-h-full text-slate-100">
-      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-400">
-            Account settings
-          </p>
-          <h1 className="mt-2 text-3xl font-bold">My Profile</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            View and manage your personal and organization information.
-          </p>
-        </div>
-
-        {!editing && (
-          <button
-            type="button"
-            onClick={startEditing}
-            className="rounded-xl bg-[#4d67f6] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#5c75ff]"
-          >
-            ✎ Edit profile
-          </button>
-        )}
+    <div className="w-full min-w-0 space-y-4 text-slate-100">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-white">My Profile</h1>
+        <p className="mt-1 text-sm text-slate-400">Your account and activity in one place.</p>
       </div>
 
-      {success && (
-        <div
-          role="status"
-          className="mb-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
-        >
-          {success}
-        </div>
-      )}
-
-      {error && (
-        <div
-          role="alert"
-          className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
-        >
-          {error}
-        </div>
-      )}
-
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]">
-        <section className="overflow-hidden rounded-2xl border border-[#1f2d48] bg-[#101b31]">
-          <div className="border-b border-[#1f2d48] bg-gradient-to-r from-[#142342] to-[#101b31] p-6 sm:p-8">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#4d67f6] text-xl font-bold">
-                {initials || "U"}
-              </div>
-
-              <div className="min-w-0">
-                <h2 className="truncate text-xl font-bold">
-                  {profile.fullName || "Your name"}
-                </h2>
-                <p className="mt-1 truncate text-sm text-slate-400">
-                  {profile.email || "Email not provided"}
-                </p>
-                <span className="mt-3 inline-block rounded-full bg-blue-400/10 px-3 py-1 text-xs capitalize text-blue-300">
-                  {profile.role || "Role not provided"}
-                </span>
-              </div>
+      {/* Header */}
+      <div className={`${card} overflow-hidden`}>
+        <div className="h-14" style={{ background: `linear-gradient(120deg, ${color}55, #101a2e 75%)` }} />
+        <div className="flex flex-wrap items-center gap-4 px-5 pb-4">
+          <span className="-mt-7 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-4 border-[#101a2e] text-xl font-bold text-[#08101e]" style={{ background: color }}>
+            {initials(user.name)}
+          </span>
+          <div className="min-w-0 flex-1 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-lg font-bold text-white">{user.name}</h2>
+              <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${user.admin ? "border-blue-500/30 bg-blue-500/10 text-blue-300" : "border-slate-500/30 bg-slate-500/10 text-slate-300"}`}>{role}</span>
             </div>
+            <p className="truncate text-sm text-slate-400">{user.email}</p>
           </div>
+          <button onClick={logout} className="rounded-lg border border-[#34435e] px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-[#1a2942]">Log out</button>
+        </div>
+      </div>
 
-          <form onSubmit={handleSave}>
-            <div className="grid gap-5 p-6 sm:grid-cols-2 sm:p-8">
-              <div>
-                <label className={labelClass} htmlFor="fullName">
-                  Full name
-                </label>
-                <input
-                  id="fullName"
-                  className={inputClass}
-                  value={editing ? draft.fullName : profile.fullName}
-                  onChange={(event) =>
-                    setDraft({ ...draft, fullName: event.target.value })
-                  }
-                  readOnly={!editing}
-                  required={editing}
-                  maxLength={120}
-                  placeholder="Enter your full name"
-                />
-              </div>
-
-              <div>
-                <label className={labelClass} htmlFor="email">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  className={inputClass}
-                  value={profile.email || "Not provided"}
-                  readOnly
-                  disabled
-                />
-                <p className="mt-2 text-xs text-slate-500">
-                  Email address cannot be changed here.
-                </p>
-              </div>
-
-              <div>
-                <label className={labelClass} htmlFor="organizationName">
-                  Organization name
-                </label>
-                <input
-                  id="organizationName"
-                  className={inputClass}
-                  value={
-                    editing
-                      ? draft.organizationName
-                      : profile.organizationName
-                  }
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      organizationName: event.target.value,
-                    })
-                  }
-                  readOnly={!editing}
-                  maxLength={160}
-                  placeholder="Enter organization name"
-                />
-              </div>
-
-              <div>
-                <label className={labelClass} htmlFor="role">
-                  Role
-                </label>
-                <input
-                  id="role"
-                  className={inputClass}
-                  value={profile.role || "Not provided"}
-                  readOnly
-                  disabled
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className={labelClass} htmlFor="createdAt">
-                  Account created date
-                </label>
-                <input
-                  id="createdAt"
-                  className={inputClass}
-                  value={formatDate(profile.createdAt)}
-                  readOnly
-                  disabled
-                />
-              </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Account details (highlighted) */}
+        <section className="overflow-hidden rounded-xl border border-blue-500/50 bg-[#0f1c38] lg:col-span-2">
+          <div className="flex items-center justify-between gap-3 border-b border-[#1f3566] px-5 py-3.5">
+            <div>
+              <h2 className="text-base font-semibold text-blue-200">Account details</h2>
+              <p className="text-xs text-slate-400">Read-only information</p>
             </div>
-
-            {editing && (
-              <div className="flex flex-col-reverse gap-3 border-t border-[#1f2d48] bg-[#0c1629]/70 px-6 py-5 sm:flex-row sm:justify-end sm:px-8">
-                <button
-                  type="button"
-                  onClick={cancelEditing}
-                  disabled={saving}
-                  className="rounded-xl border border-[#30415f] px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-[#1a2942] disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-xl bg-[#4d67f6] px-5 py-3 text-sm font-semibold text-white hover:bg-[#5c75ff] disabled:opacity-50"
-                >
-                  {saving ? "Saving..." : "Save changes"}
-                </button>
+            <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-300">{role}</span>
+          </div>
+          <dl className="grid grid-cols-1 sm:grid-cols-2">
+            {rows.map(([k, v]) => (
+              <div key={k} className="min-w-0 border-b border-[#1f3566] px-5 py-3.5">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{k}</dt>
+                <dd className="mt-1 truncate text-sm font-medium text-white" title={v}>{v}</dd>
               </div>
-            )}
-          </form>
+            ))}
+            <div className="min-w-0 px-5 py-3.5 sm:col-span-2">
+              <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">User ID</dt>
+              <dd className="mt-1 flex items-center gap-3">
+                <span className="min-w-0 truncate font-mono text-xs text-slate-200">{text(user.id)}</span>
+                {user.id && (
+                  <button onClick={copyId} className="shrink-0 rounded-md border border-[#2f4f9e] px-2 py-1 text-[11px] text-blue-200 hover:bg-[#16295a]">{copied ? "Copied" : "Copy"}</button>
+                )}
+              </dd>
+            </div>
+          </dl>
         </section>
 
-        <aside className="space-y-6">
-          <section className="rounded-2xl border border-[#1f2d48] bg-[#101b31] p-6">
-            <h2 className="font-semibold">Account overview</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Your account at a glance
-            </p>
-
-            <div className="mt-6 space-y-4">
-              <div className="flex justify-between gap-4 border-b border-[#1f2d48] pb-4">
-                <span className="text-sm text-slate-400">Status</span>
-                <span className="text-sm font-medium text-emerald-300">
-                  Active
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 border-b border-[#1f2d48] pb-4">
-                <span className="text-sm text-slate-400">Organization</span>
-                <span className="break-words text-right text-sm font-medium">
-                  {profile.organizationName || "Not provided"}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <span className="text-sm text-slate-400">Member since</span>
-                <span className="text-right text-sm font-medium">
-                  {formatDate(profile.createdAt)}
-                </span>
-              </div>
+        {/* Projects */}
+        <section className={`${card} overflow-hidden`}>
+          <div className={head}>
+            <div>
+              <h2 className="text-base font-semibold text-white">My projects{projects && !error ? ` · ${mine.length}` : ""}</h2>
+              <p className="text-xs text-slate-500">Projects you're assigned to</p>
             </div>
-          </section>
-
-          <section className="rounded-2xl border border-[#1f2d48] bg-[#101b31] p-6">
-            <h2 className="font-semibold">Profile privacy</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Your email address and role are read-only. You can edit your
-              full name and organization name.
-            </p>
-          </section>
-        </aside>
+            <Link to="/projects" className="rounded-lg border border-[#293752] px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-[#1a2942]">View all</Link>
+          </div>
+          {error ? (
+            <p className="px-5 py-8 text-center text-sm text-rose-300">{error}</p>
+          ) : !projects ? (
+            <p className="px-5 py-8 text-center text-sm text-slate-400">Loading projects...</p>
+          ) : !mine.length ? (
+            <p className="px-5 py-8 text-center text-sm text-slate-500">{user.admin ? "No projects yet. Create one from the Projects page." : "You haven't been added to a project yet."}</p>
+          ) : (
+            mine.slice(0, 6).map((p) => (
+              <div key={p.id ?? p.name} className="flex items-center gap-3 border-b border-[#1a2640] px-5 py-3 last:border-0">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-bold text-[#08101e]" style={{ background: colorFor(p.name) }}>{p.name[0].toUpperCase()}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{p.name}</p>
+                  <p className="truncate text-xs text-slate-500">{p.members.length} {p.members.length === 1 ? "member" : "members"} · {fmt(p.date)}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </section>
       </div>
-    </main>
+    </div>
   );
 }
