@@ -4,11 +4,13 @@
 
 // import axiosInstance from "./axiosInstance";
 
-
-// // Fetch tickets from the backend
+// // Fetch all tickets from the backend
 // export const getTickets = async () => {
 //   try {
 //     const response = await axiosInstance.get("/api/tickets");
+
+//     console.log("Get tickets API response:", response.data);
+
 //     return response.data;
 //   } catch (error) {
 //     console.error(
@@ -24,7 +26,9 @@
 //     }
 
 //     if (status === 403) {
-//       throw new Error("You don't have permission to view tickets.");
+//       throw new Error(
+//         "You don't have permission to view tickets."
+//       );
 //     }
 
 //     if (status === 404) {
@@ -51,7 +55,10 @@
 //       ticketData
 //     );
 
-//     console.log("Create ticket API response:", response.data);
+//     console.log(
+//       "Create ticket API response:",
+//       response.data
+//     );
 
 //     return response.data;
 //   } catch (error) {
@@ -73,12 +80,20 @@
 //     const status = error.response?.status;
 //     const message = error.response?.data?.message;
 
+//     if (status === 400) {
+//       throw new Error(
+//         message || "Invalid ticket details. Please check the form."
+//       );
+//     }
+
 //     if (status === 401) {
 //       throw new Error("Please log in again.");
 //     }
 
 //     if (status === 403) {
-//       throw new Error("You don't have permission to create tickets.");
+//       throw new Error(
+//         "You don't have permission to create tickets."
+//       );
 //     }
 
 //     if (status === 404) {
@@ -110,7 +125,10 @@
 //       `/api/tickets/${encodeURIComponent(ticketId)}`
 //     );
 
-//     console.log("Delete ticket API response:", response.data);
+//     console.log(
+//       "Delete ticket API response:",
+//       response.data
+//     );
 
 //     return response.data;
 //   } catch (error) {
@@ -127,6 +145,12 @@
 //     const status = error.response?.status;
 //     const message = error.response?.data?.message;
 
+//     if (status === 400) {
+//       throw new Error(
+//         message || "Invalid request. The ticket could not be deleted."
+//       );
+//     }
+
 //     if (status === 401) {
 //       throw new Error("Please log in again.");
 //     }
@@ -139,7 +163,7 @@
 
 //     if (status === 404) {
 //       throw new Error(
-//         "Ticket not found or delete endpoint unavailable."
+//         message || "Ticket not found or delete endpoint unavailable."
 //       );
 //     }
 
@@ -160,10 +184,11 @@
 // };
 
 
-
 import axiosInstance from "./axiosInstance";
 
-// Fetch all tickets from the backend
+// ==========================================
+// GET ALL TICKETS
+// ==========================================
 export const getTickets = async () => {
   try {
     const response = await axiosInstance.get("/api/tickets");
@@ -204,7 +229,9 @@ export const getTickets = async () => {
   }
 };
 
-// Create a new ticket
+// ==========================================
+// CREATE NEW TICKET
+// ==========================================
 export const createTicket = async (ticketData) => {
   try {
     console.log("Create ticket payload:", ticketData);
@@ -271,11 +298,94 @@ export const createTicket = async (ticketData) => {
   }
 };
 
-// Delete a ticket from the backend
+// ==========================================
+// UPDATE EXISTING TICKET
+// ==========================================
+export const updateTicket = async (ticketId, ticketData) => {
+  try {
+    if (!ticketId) {
+      throw new Error(
+        "Ticket ID is required to update a ticket."
+      );
+    }
+
+    console.log("Updating ticket:", ticketId);
+    console.log("Update ticket payload:", ticketData);
+
+    const response = await axiosInstance.put(
+      `/api/tickets/${encodeURIComponent(ticketId)}`,
+      ticketData
+    );
+
+    console.log(
+      "Update ticket API response:",
+      response.data
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Update ticket backend error:",
+      error.response?.data || error.message
+    );
+
+    console.error(
+      "Update ticket HTTP status:",
+      error.response?.status
+    );
+
+    const status = error.response?.status;
+    const message = error.response?.data?.message;
+
+    if (status === 400) {
+      throw new Error(
+        message || "Invalid ticket details."
+      );
+    }
+
+    if (status === 401) {
+      throw new Error("Please log in again.");
+    }
+
+    if (status === 403) {
+      throw new Error(
+        "You don't have permission to update tickets."
+      );
+    }
+
+    if (status === 404) {
+      throw new Error(
+        message || "Ticket not found or update endpoint unavailable."
+      );
+    }
+
+    if (status === 405) {
+      throw new Error(
+        "The backend does not support this update method."
+      );
+    }
+
+    if (!error.response) {
+      throw new Error(
+        "Cannot connect to the server. Check your API configuration."
+      );
+    }
+
+    throw new Error(
+      message || "Failed to update ticket. Please try again."
+    );
+  }
+};
+
+// ==========================================
+// DELETE TICKET
+// ==========================================
 export const deleteTicket = async (ticketId) => {
   try {
     if (!ticketId) {
-      throw new Error("Ticket ID is required to delete a ticket.");
+      throw new Error(
+        "Ticket ID is required to delete a ticket."
+      );
     }
 
     console.log("Deleting ticket:", ticketId);
@@ -338,6 +448,8 @@ export const deleteTicket = async (ticketId) => {
       );
     }
 
-    throw new Error(message || "Failed to delete ticket.");
+    throw new Error(
+      message || "Failed to delete ticket."
+    );
   }
 };

@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../api/auth";
-import { toast } from "react-toastify";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -11,16 +10,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+  };
 
   const handleLogin = async (event) => {
     event.preventDefault();
 
+    setMessage(null);
+
     if (!email.trim() || !password) {
-      toast.error("Please enter your email and password.", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-      });
+      showMessage("error", "Please enter your email and password.");
       return;
     }
 
@@ -34,26 +36,42 @@ export default function LoginPage() {
         password,
       });
 
-      toast.success("You are logged in successfully!", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-        onClose: () => {
-          navigate("/dashboard", { replace: true });
-        },
-      });
+      showMessage("success", "You are logged in successfully!");
+
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 1500);
+
     } catch (err) {
-      toast.error(
-        err?.message || "Unable to sign in. Please try again.",
-        {
-          position: "top-right",
-          autoClose: 3000,
-          theme: "dark",
-        }
+      showMessage(
+        "error",
+        err?.message || "Unable to sign in. Please try again."
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = () => {
+    showMessage(
+      "info",
+      "Please contact your organization admin to reset your password."
+    );
+  };
+
+  const messageStyles = {
+    success: {
+      container: "border-emerald-700 bg-emerald-950/50 text-emerald-300",
+      icon: "✓",
+    },
+    error: {
+      container: "border-rose-700 bg-rose-950/50 text-rose-300",
+      icon: "!",
+    },
+    info: {
+      container: "border-blue-700 bg-blue-950/50 text-blue-300",
+      icon: "i",
+    },
   };
 
   return (
@@ -153,6 +171,34 @@ export default function LoginPage() {
             Enter your work email to access your organization's workspace.
           </p>
 
+          {/* Inline notification banner */}
+          {message && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className={`mb-6 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
+                messageStyles[message.type].container
+              }`}
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-xs font-bold">
+                {messageStyles[message.type].icon}
+              </span>
+
+              <p className="flex-1 leading-relaxed">
+                {message.text}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setMessage(null)}
+                className="shrink-0 text-lg leading-none opacity-70 hover:opacity-100"
+                aria-label="Dismiss notification"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleLogin} noValidate>
 
             {/* Email */}
@@ -213,16 +259,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  toast.info(
-                    "Please contact your organization admin to reset your password.",
-                    {
-                      position: "top-right",
-                      autoClose: 3000,
-                      theme: "dark",
-                    }
-                  )
-                }
+                onClick={handleForgotPassword}
                 className="font-medium text-[#5b6ef5] hover:underline"
               >
                 Forgot password?
@@ -240,9 +277,16 @@ export default function LoginPage() {
 
           </form>
 
-          <p className="text-center text-sm text-[#6b7396]">
-            Don't have an account? Ask your organization admin to invite you.
-          </p>
+          <div className="mt-2 text-center">
+  <p className="text-sm text-[#6b7396]">
+    Don't have an account?
+  </p>
+
+  <p className="mt-2 text-sm leading-relaxed text-[#aab4d4]">
+    Your organization admin can invite you to join Relay.
+    Check your email for an invitation link to activate your account.
+  </p>
+</div>
         </div>
       </div>
     </div>
