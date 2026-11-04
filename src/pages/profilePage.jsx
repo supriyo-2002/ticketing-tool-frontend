@@ -16,10 +16,8 @@ const API = (
 const PROJECTS_PATH = "/api/projects";
 const EMPLOYEES_PATH = "/api/employees";
 
-// OPTIONAL: if your backend has a "get current user / profile" endpoint
-// (e.g. "/api/auth/me"), put its path here. The page will use it to fill in
-// the organization name and "Member since". Leave null to skip it.
-const PROFILE_PATH = null;
+// Current user's profile endpoint (returns organization_name, organization_id, created_at...).
+const PROFILE_PATH = "/api/profile";
 
 /* =========================
    HELPERS
@@ -89,6 +87,10 @@ const orgNameOf = (o = {}) =>
   o.org_name ??
   "";
 
+// Organization id, looking in every shape the API might use.
+const orgIdOf = (o = {}) =>
+  o.organization_id ?? o.organizationId ?? o.organization?.id ?? "";
+
 // "Member since" date, looking in every shape the API might use.
 const sinceOf = (o = {}) =>
   o.created_at ??
@@ -111,7 +113,7 @@ function getStoredUser() {
     name: cap(u.name ?? u.full_name ?? email.split("@")[0]) || "Your Account",
     admin: role === "ADMIN",
     org: orgNameOf(u),
-    orgId: u.organization_id ?? u.organizationId ?? "",
+    orgId: orgIdOf(u),
     since: sinceOf(u),
     // Anything else in the saved user (except secrets) is listed as an extra row.
     extra: Object.entries(u)
@@ -156,8 +158,8 @@ export default function ProfilePage() {
 
   const [projects, setProjects] = useState(null); // null = still loading
   const [error, setError] = useState("");
-  // Organization name and join date found outside the saved login data.
-  const [extras, setExtras] = useState({ org: "", since: null });
+  // Profile details found outside the saved login data.
+  const [extras, setExtras] = useState({ org: "", since: null, orgId: "", userId: "" });
   const [copied, setCopied] = useState(""); // label of the ID that was just copied
 
   const logout = useCallback(() => {
@@ -165,13 +167,20 @@ export default function ProfilePage() {
     navigate("/", { replace: true });
   }, [navigate]);
 
-  // Fills in the organization / date only if we don't have them yet.
+  // Fills in profile details. By default it only fills blanks;
+  // with force = true (used for /api/profile) the new values win.
   const addExtras = useCallback(
-    (found) =>
-      setExtras((prev) => ({
-        org: prev.org || found.org || "",
-        since: prev.since || found.since || null,
-      })),
+    (found, force = false) =>
+      setExtras((prev) => {
+        const pick = (key, empty) =>
+          force ? found[key] || prev[key] : prev[key] || found[key] || empty;
+        return {
+          org: pick("org", ""),
+          since: pick("since", null),
+          orgId: pick("orgId", ""),
+          userId: pick("userId", ""),
+        };
+      }),
     []
   );
 
@@ -204,12 +213,20 @@ export default function ProfilePage() {
         setError(e.message);
       });
 
-    // 2) The current user's own profile, if an endpoint is configured above.
+    // 2) The current user's own profile (source of truth, so it overrides).
     if (PROFILE_PATH) {
       apiGet(PROFILE_PATH)
         .then((body) => {
           const raw = body.data?.user ?? body.data ?? body.user ?? body;
-          addExtras({ org: orgNameOf(raw), since: sinceOf(raw) });
+          addExtras(
+            {
+              org: orgNameOf(raw),
+              since: sinceOf(raw),
+              orgId: orgIdOf(raw),
+              userId: raw.user_id ?? raw.id ?? "",
+            },
+            true
+          );
         })
         .catch(onExtraError);
     }
@@ -229,17 +246,19 @@ export default function ProfilePage() {
       .catch(onExtraError);
   }, [user.id, user.email, logout, addExtras]);
 
+  // Saved login data first, then whatever the lookups found.
+  const org = extras.org || user.org;
+  const since = extras.since || user.since;
+  const orgId = extras.orgId || user.orgId;
+  const userId = user.id || extras.userId;
+
   // Projects this user belongs to.
   const mine = (projects || []).filter((p) =>
-    p.members.some((m) => String(idOf(m)) === String(user.id))
+    p.members.some((m) => String(idOf(m)) === String(userId))
   );
 
   const color = colorFor(user.email || user.name);
   const role = user.admin ? "Admin" : "Employee";
-
-  // Saved login data first, then whatever the extra lookups found.
-  const org = user.org || extras.org;
-  const since = user.since || extras.since;
 
   const rows = [
     ["Full name", user.name],
@@ -252,8 +271,8 @@ export default function ProfilePage() {
 
   // IDs get their own block with a copy button each.
   const ids = [
-    ["Organization ID", user.orgId],
-    ["User ID", user.id],
+    ["Organization ID", orgId],
+    ["User ID", userId],
   ].filter(([, value]) => value);
 
   const copyId = (label, value) =>
