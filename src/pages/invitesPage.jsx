@@ -22,7 +22,7 @@ const INVITES_LIST_PATH = "/api/auth/invitations"; // GET    list all invitation
 const inviteItemPath = (id) => `${INVITES_LIST_PATH}/${encodeURIComponent(id)}`;
 
 // Resend the invitation email: POST /api/auth/resend-invite/:inviteId
-// (taken from the Postman collection)
+// (same as {{baseUrl}}/api/auth/resend-invite/:inviteId in Postman)
 const resendPath = (id) => `/api/auth/resend-invite/${encodeURIComponent(id)}`;
 const RESEND_METHOD = "POST";
 
@@ -149,7 +149,8 @@ const toInvite = (raw) => {
   }
 
   return {
-    id: raw.invite_id ?? raw.id ?? raw.email,
+    // The real invitation id is what /resend-invite/:inviteId needs.
+    id: raw.invite_id ?? raw.invitation_id ?? raw.id ?? raw.email,
     email: raw.email ?? "",
     role: String(raw.role ?? "EMPLOYEE").toUpperCase(),
     status,
@@ -170,9 +171,29 @@ const currentRole = () =>
     tokenStorage.getUser?.()?.role ?? tokenStorage.getUser?.()?.user_role ?? ""
   ).toUpperCase();
 
+// Builds a readable error from the API body. It includes the extra reason the
+// backend sends (for example the real Supabase error) instead of hiding it.
+const apiMessage = (data, status) => {
+  const main =
+    data.message ||
+    (typeof data.error === "string" ? data.error : data.error?.message) ||
+    `The request failed (HTTP ${status}).`;
+
+  const detail = [
+    typeof data.error === "string" ? data.error : data.error?.message,
+    data.details,
+    data.detail,
+    data.reason,
+    data.supabase_error,
+    data.supabaseError,
+  ].find((v) => typeof v === "string" && v && v !== main);
+
+  return detail ? `${main} (${detail})` : main;
+};
+
 // One place for every API call: adds the token, reads the JSON safely and
 // throws an Error with a readable message. err.status === 401 means the
-// session expired.
+// session expired. The full response is also printed in the browser console.
 async function request(path, { method = "GET", body } = {}) {
   if (!API) {
     throw new Error("API URL is missing. Please check your frontend .env file.");
@@ -202,7 +223,11 @@ async function request(path, { method = "GET", body } = {}) {
     try {
       data = JSON.parse(text);
     } catch {
-      if (!res.ok) throw new Error(`The request failed (HTTP ${res.status}).`);
+      if (!res.ok) {
+        const err = new Error(`The request failed (HTTP ${res.status}).`);
+        err.status = res.status;
+        throw err;
+      }
     }
   }
 
@@ -213,9 +238,11 @@ async function request(path, { method = "GET", body } = {}) {
   }
 
   if (!res.ok || data.success === false) {
-    throw new Error(
-      data.message || data.error || `The request failed (HTTP ${res.status}).`
-    );
+    console.error(`[API] ${method} ${path} -> HTTP ${res.status}`, data);
+    const err = new Error(apiMessage(data, res.status));
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
 
   return data;
@@ -576,12 +603,22 @@ export default function InvitesPage() {
     }
   };
 
-  /* ----- resend the email (POST) ----- */
+  /* ----- resend the email (POST /api/auth/resend-invite/:inviteId) ----- */
 
   const resendInvite = async (invite) => {
     if (!isAdmin || busy.id) return;
     setSuccess("");
     setActionError("");
+
+    // If the list had no real invitation id, the id is just the email and the
+    // API would answer "Invitation not found". Stop early with a clear message.
+    if (!invite.id || String(invite.id).includes("@")) {
+      setActionError(
+        "This invitation has no ID in the API response, so it can't be resent. Check that GET /api/auth/invitations returns invite_id."
+      );
+      return;
+    }
+
     setBusy({ id: invite.id, action: "resend" });
     try {
       const data = await request(resendPath(invite.id), { method: RESEND_METHOD });
@@ -590,7 +627,17 @@ export default function InvitesPage() {
       await loadInvites({ silent: true }); // picks up the new expiry and resend count
     } catch (err) {
       if (err.status === 401) return handleExpired();
-      setActionError(err.message || "Could not resend the invitation.");
+
+      // Friendly text for the cases the API documents.
+      const msg =
+        /already been registered/i.test(err.message)
+          ? `${invite.email} already has an account, so the invite email can't be re-sent. Ask them to sign in, or use "Forgot password" to set a password.`
+          : err.status === 429
+          ? `Please wait a bit before resending again. ${err.message}`
+          : err.status === 404
+          ? "Invitation not found. Refresh the list and try again."
+          : err.message || "Could not resend the invitation.";
+      setActionError(msg);
     } finally {
       setBusy({ id: null, action: "" });
     }
