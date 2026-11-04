@@ -1,5 +1,4 @@
 
-
 import { useEffect, useMemo, useState } from "react";
 
 import { getProjects } from "../api/project.js";
@@ -43,9 +42,11 @@ function getArray(response, keys = []) {
 }
 
 function getErrorMessage(error) {
-  return error?.response?.data?.message ||
+  return (
+    error?.response?.data?.message ||
     error?.message ||
-    "Something went wrong.";
+    "Something went wrong."
+  );
 }
 
 function formatDate(value) {
@@ -150,7 +151,9 @@ function StatusBadge({ status }) {
   }
 
   return (
-    <span className={`inline-flex whitespace-nowrap items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${style}`}>
+    <span
+      className={`inline-flex whitespace-nowrap items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${style}`}
+    >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {status || "Unknown"}
     </span>
@@ -173,7 +176,9 @@ function PriorityBadge({ priority }) {
   }
 
   return (
-    <span className={`inline-flex whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold ${style}`}>
+    <span
+      className={`inline-flex whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold ${style}`}
+    >
       {priority || "Unknown"}
     </span>
   );
@@ -496,15 +501,15 @@ export default function TicketsPage() {
   };
 
   const inputClass =
-    "w-full min-w-0 rounded-lg border border-[#202b43] bg-[#111a2d] px-3 py-3 text-sm text-slate-200 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+    "w-full min-w-0 rounded-lg border border-[#202b43] bg-[#111a2d] px-3 py-2.5 text-sm text-slate-200 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:py-3";
 
   const labelClass = "mb-2 block text-xs font-semibold text-slate-400";
 
   const actionButtonClass =
-    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#26344e] bg-[#111a2d] text-slate-400 transition hover:border-blue-500 hover:bg-blue-500/10 hover:text-blue-300";
+    "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#26344e] bg-[#111a2d] text-slate-400 transition hover:border-blue-500 hover:bg-blue-500/10 hover:text-blue-300";
 
   const deleteButtonClass =
-    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#26344e] bg-[#111a2d] text-slate-400 transition hover:border-rose-500 hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40";
+    "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#26344e] bg-[#111a2d] text-slate-400 transition hover:border-rose-500 hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40";
 
   const tabs = ["All", "Open", "In Progress", "Resolved", "Closed"];
 
@@ -512,65 +517,69 @@ export default function TicketsPage() {
     <div className="relative isolate min-h-screen w-full min-w-0 text-[#f3f5fb]">
       <div className="pointer-events-none fixed inset-0 z-0 bg-[#080d18]" />
 
-      <main className="relative z-10 mx-auto min-h-screen w-full min-w-0 p-3 sm:p-5 lg:p-6">
-       
-        {/* Header — matching Projects page */}
-<div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <div className="min-w-0">
-    <h1 className="text-2xl font-bold tracking-tight text-white">
-      Tickets
-    </h1>
+      <main className="relative z-10 mx-auto min-h-screen w-full min-w-0 px-4 py-3 sm:p-5 lg:p-6">
 
-    <p className="mt-1 text-xs text-slate-400">
-      {tickets.length} tickets across {projects.length} projects
-    </p>
-  </div>
+        {/* HEADER */}
+        <div className="mb-4 flex flex-col gap-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Tickets
+            </h1>
 
-  <button
-    type="button"
-    onClick={openCreateModal}
-    className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500 sm:w-auto"
-  >
-    + New ticket
-  </button>
-</div>
+            <p className="mt-1 text-xs text-slate-400">
+              {tickets.length} tickets across {projects.length} projects
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500 sm:w-auto"
+          >
+            + New ticket
+          </button>
+        </div>
 
         {/* NOTIFICATIONS */}
         {pageError && (
-          <div role="alert" className="mb-4 rounded-lg border border-rose-800 bg-rose-950/40 px-4 py-3 text-sm text-rose-300">
+          <div
+            role="alert"
+            className="mb-4 rounded-lg border border-rose-800 bg-rose-950/40 px-4 py-3 text-sm text-rose-300"
+          >
             {pageError}
           </div>
         )}
 
         {successMessage && (
-          <div role="status" className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300">
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300"
+          >
             {successMessage}
           </div>
         )}
 
-        
-        
-        {/* Status tabs — matching Projects page */}
-<div className="mb-5 flex min-w-0 gap-2 overflow-x-auto pb-1">
-  {tabs.map((tab) => (
-    <button
-      key={tab}
-      type="button"
-      onClick={() => setStatusTab(tab)}
-      aria-pressed={statusTab === tab}
-      className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-        statusTab === tab
-          ? "border-blue-600 bg-blue-600/15 text-blue-400"
-          : "border-[#202b43] bg-[#111a2d] text-slate-400 hover:bg-[#17233b] hover:text-slate-200"
-      }`}
-    >
-      {tab}
-    </button>
-  ))}
-</div>
+        {/* STATUS TABS */}
+        <div className="mb-4 flex min-w-0 gap-1.5 overflow-x-auto pb-1 sm:mb-5 sm:gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setStatusTab(tab)}
+              aria-pressed={statusTab === tab}
+              className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 sm:py-2 sm:text-xs ${
+                statusTab === tab
+                  ? "border-blue-600 bg-blue-600/15 text-blue-400"
+                  : "border-[#202b43] bg-[#111a2d] text-slate-400 hover:bg-[#17233b] hover:text-slate-200"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
 
         {/* FILTERS */}
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="mb-4 grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-3">
           <select
             value={projectFilter}
             onChange={(event) => setProjectFilter(event.target.value)}
@@ -615,7 +624,7 @@ export default function TicketsPage() {
         </div>
 
         {/* SEARCH */}
-        <div className="mb-5">
+        <div className="mb-4 sm:mb-5">
           <input
             type="search"
             value={search}
@@ -628,7 +637,7 @@ export default function TicketsPage() {
 
         {/* TICKET TABLE CARD */}
         <section className="overflow-hidden rounded-xl border border-[#202b43] bg-[#111a2d]">
-          <div className="flex items-center justify-between gap-3 border-b border-[#202b43] px-4 py-4 sm:px-5">
+          <div className="flex items-center justify-between gap-3 border-b border-[#202b43] px-3 py-3 sm:px-5 sm:py-4">
             <div>
               <h2 className="text-sm font-bold text-slate-100 sm:text-base">
                 All tickets
@@ -656,14 +665,14 @@ export default function TicketsPage() {
           ) : (
             <>
               {/* MOBILE CARDS */}
-              <div className="grid gap-3 p-3 md:hidden">
+              <div className="grid gap-2.5 p-2.5 md:hidden">
                 {filteredTickets.map((ticket) => {
                   const ticketId = getTicketId(ticket);
 
                   return (
                     <article
                       key={ticketId}
-                      className="rounded-lg border border-[#26344e] bg-[#0d172a] p-4"
+                      className="rounded-lg border border-[#26344e] bg-[#0d172a] p-3 sm:p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -681,26 +690,34 @@ export default function TicketsPage() {
                         <StatusBadge status={getStatusName(ticket)} />
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#26344e] pt-3">
+                      <div className="mt-3 grid grid-cols-2 gap-2.5 border-t border-[#26344e] pt-3">
                         <div>
-                          <p className="mb-1 text-[10px] text-slate-500">Priority</p>
+                          <p className="mb-1 text-[10px] text-slate-500">
+                            Priority
+                          </p>
                           <PriorityBadge priority={getPriorityName(ticket)} />
                         </div>
+
                         <div>
-                          <p className="mb-1 text-[10px] text-slate-500">Assignee</p>
-                          <p className="text-xs text-slate-300">
+                          <p className="mb-1 text-[10px] text-slate-500">
+                            Assignee
+                          </p>
+                          <p className="break-words text-xs text-slate-300">
                             {getEmployeeName(ticket.assigned_to)}
                           </p>
                         </div>
+
                         <div>
-                          <p className="mb-1 text-[10px] text-slate-500">Due date</p>
+                          <p className="mb-1 text-[10px] text-slate-500">
+                            Due date
+                          </p>
                           <p className="text-xs text-slate-300">
                             {formatDate(ticket.due_date)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="mt-4 flex justify-end gap-2 border-t border-[#26344e] pt-3">
+                      <div className="mt-3 flex justify-end gap-1.5 border-t border-[#26344e] pt-3">
                         <button
                           type="button"
                           onClick={() => setSelectedTicket(ticket)}
@@ -749,7 +766,9 @@ export default function TicketsPage() {
                       <th className="px-4 py-4 font-semibold">Priority</th>
                       <th className="px-4 py-4 font-semibold">Assignee</th>
                       <th className="px-4 py-4 font-semibold">Due date</th>
-                      <th className="px-4 py-4 text-center font-semibold">Actions</th>
+                      <th className="px-4 py-4 text-center font-semibold">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
 
@@ -758,7 +777,10 @@ export default function TicketsPage() {
                       const ticketId = getTicketId(ticket);
 
                       return (
-                        <tr key={ticketId} className="transition hover:bg-[#17233b]">
+                        <tr
+                          key={ticketId}
+                          className="transition hover:bg-[#17233b]"
+                        >
                           <td className="whitespace-nowrap px-4 py-4 text-[10px] text-slate-500">
                             {getTicketNumber(ticket)}
                           </td>
@@ -828,7 +850,11 @@ export default function TicketsPage() {
                                 aria-label="Delete ticket"
                                 className={deleteButtonClass}
                               >
-                                {deletingId === ticketId ? "…" : <ActionIcon type="delete" />}
+                                {deletingId === ticketId ? (
+                                  "…"
+                                ) : (
+                                  <ActionIcon type="delete" />
+                                )}
                               </button>
                             </div>
                           </td>
@@ -878,7 +904,9 @@ export default function TicketsPage() {
               </div>
 
               <div className="mb-6 rounded-xl border border-[#26344e] bg-[#111a2d] p-4">
-                <p className="mb-2 text-xs font-semibold text-slate-400">Description</p>
+                <p className="mb-2 text-xs font-semibold text-slate-400">
+                  Description
+                </p>
                 <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">
                   {selectedTicket.description || "No description provided."}
                 </p>
@@ -891,42 +919,52 @@ export default function TicketsPage() {
                     {getOrganizationName(selectedTicket)}
                   </p>
                 </div>
+
                 <div>
                   <p className="mb-1 text-xs text-slate-500">Project</p>
-                  <p className="text-sm text-slate-200">{getProjectName(selectedTicket)}</p>
+                  <p className="text-sm text-slate-200">
+                    {getProjectName(selectedTicket)}
+                  </p>
                 </div>
+
                 <div>
                   <p className="mb-2 text-xs text-slate-500">Status</p>
                   <StatusBadge status={getStatusName(selectedTicket)} />
                 </div>
+
                 <div>
                   <p className="mb-2 text-xs text-slate-500">Priority</p>
                   <PriorityBadge priority={getPriorityName(selectedTicket)} />
                 </div>
+
                 <div>
                   <p className="mb-1 text-xs text-slate-500">Assigned to</p>
                   <p className="text-sm text-slate-200">
                     {getEmployeeName(selectedTicket.assigned_to)}
                   </p>
                 </div>
+
                 <div>
                   <p className="mb-1 text-xs text-slate-500">Created by</p>
                   <p className="text-sm text-slate-200">
                     {getEmployeeName(selectedTicket.created_by)}
                   </p>
                 </div>
+
                 <div>
                   <p className="mb-1 text-xs text-slate-500">Due date</p>
                   <p className="text-sm text-slate-200">
                     {formatDate(selectedTicket.due_date)}
                   </p>
                 </div>
+
                 <div>
                   <p className="mb-1 text-xs text-slate-500">Created at</p>
                   <p className="text-sm text-slate-200">
                     {formatDateTime(selectedTicket.created_at)}
                   </p>
                 </div>
+
                 <div className="sm:col-span-2">
                   <p className="mb-1 text-xs text-slate-500">Last updated</p>
                   <p className="text-sm text-slate-200">
@@ -943,6 +981,7 @@ export default function TicketsPage() {
                 >
                   Close
                 </button>
+
                 <button
                   type="button"
                   onClick={() => openEditModal(selectedTicket)}
@@ -993,7 +1032,9 @@ export default function TicketsPage() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelClass} htmlFor="ticket-title">Ticket title *</label>
+                    <label className={labelClass} htmlFor="ticket-title">
+                      Ticket title *
+                    </label>
                     <input
                       id="ticket-title"
                       name="title"
@@ -1006,7 +1047,9 @@ export default function TicketsPage() {
                   </div>
 
                   <div>
-                    <label className={labelClass} htmlFor="ticket-project">Project *</label>
+                    <label className={labelClass} htmlFor="ticket-project">
+                      Project *
+                    </label>
                     <select
                       id="ticket-project"
                       name="project_id"
@@ -1017,8 +1060,13 @@ export default function TicketsPage() {
                     >
                       <option value="">Select project</option>
                       {projects.map((project) => (
-                        <option key={project.project_id} value={project.project_id}>
-                          {project.name || project.project_name || "Unnamed project"}
+                        <option
+                          key={project.project_id}
+                          value={project.project_id}
+                        >
+                          {project.name ||
+                            project.project_name ||
+                            "Unnamed project"}
                         </option>
                       ))}
                     </select>
@@ -1026,7 +1074,12 @@ export default function TicketsPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass} htmlFor="ticket-description">Description</label>
+                  <label
+                    className={labelClass}
+                    htmlFor="ticket-description"
+                  >
+                    Description
+                  </label>
                   <textarea
                     id="ticket-description"
                     name="description"
@@ -1040,7 +1093,9 @@ export default function TicketsPage() {
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelClass} htmlFor="ticket-status">Status *</label>
+                    <label className={labelClass} htmlFor="ticket-status">
+                      Status *
+                    </label>
                     <select
                       id="ticket-status"
                       name="status_id"
@@ -1051,7 +1106,10 @@ export default function TicketsPage() {
                     >
                       <option value="">Select status</option>
                       {statuses.map((status) => (
-                        <option key={status.status_id} value={status.status_id}>
+                        <option
+                          key={status.status_id}
+                          value={status.status_id}
+                        >
                           {status.name}
                         </option>
                       ))}
@@ -1059,7 +1117,9 @@ export default function TicketsPage() {
                   </div>
 
                   <div>
-                    <label className={labelClass} htmlFor="ticket-priority">Priority *</label>
+                    <label className={labelClass} htmlFor="ticket-priority">
+                      Priority *
+                    </label>
                     <select
                       id="ticket-priority"
                       name="priority_id"
@@ -1070,7 +1130,10 @@ export default function TicketsPage() {
                     >
                       <option value="">Select priority</option>
                       {priorities.map((priority) => (
-                        <option key={priority.priority_id} value={priority.priority_id}>
+                        <option
+                          key={priority.priority_id}
+                          value={priority.priority_id}
+                        >
                           {priority.name}
                         </option>
                       ))}
@@ -1080,7 +1143,9 @@ export default function TicketsPage() {
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelClass} htmlFor="ticket-assignee">Assign member</label>
+                    <label className={labelClass} htmlFor="ticket-assignee">
+                      Assign member
+                    </label>
                     <select
                       id="ticket-assignee"
                       name="assigned_to"
@@ -1090,7 +1155,10 @@ export default function TicketsPage() {
                     >
                       <option value="">Unassigned</option>
                       {employees.map((employee) => (
-                        <option key={employee.user_id} value={employee.user_id}>
+                        <option
+                          key={employee.user_id}
+                          value={employee.user_id}
+                        >
                           {employee.name}
                         </option>
                       ))}
@@ -1098,7 +1166,9 @@ export default function TicketsPage() {
                   </div>
 
                   <div>
-                    <label className={labelClass} htmlFor="ticket-due-date">Due date</label>
+                    <label className={labelClass} htmlFor="ticket-due-date">
+                      Due date
+                    </label>
                     <input
                       id="ticket-due-date"
                       type="date"
