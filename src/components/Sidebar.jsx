@@ -1,3 +1,5 @@
+
+
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { tokenStorage } from "../utils/tokenStorage";
 
@@ -5,7 +7,7 @@ const mainItems = [
   { label: "Overview", icon: "▦", path: "/dashboard" },
   { label: "Projects", icon: "▱", path: "/projects" },
   { label: "Tickets", icon: "▤", path: "/tickets" },
-  { label: "Invitation", icon: "▷", path: "/invites" },
+  { label: "Invitation", icon: "▷", path: "/invites", adminOnly: true },
 ];
 
 const linkClasses = ({ isActive }) =>
@@ -15,7 +17,14 @@ const linkClasses = ({ isActive }) =>
       : "text-slate-400 hover:bg-[#17223b] hover:text-white"
   }`;
 
-const accents = ["#4a7cff", "#2ecf8e", "#f5a623", "#a78bfa", "#fb7185", "#38bdf8"];
+const accents = [
+  "#4a7cff",
+  "#2ecf8e",
+  "#f5a623",
+  "#a78bfa",
+  "#fb7185",
+  "#38bdf8",
+];
 
 const accentFor = (text = "") => {
   let sum = 0;
@@ -33,13 +42,15 @@ const titleCase = (text = "") =>
 /* "Supriyo Maity" -> "SM"; a single word -> its first two letters */
 const initialsOf = (name = "") => {
   const parts = name.split(/[\s._-]+/).filter(Boolean);
+
   if (parts.length >= 2) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
+
   return (parts[0] || "U").slice(0, 2).toUpperCase();
 };
 
-/* Reads the logged-in user saved at login (same storage the other pages use) */
+/* Reads the logged-in user saved at login */
 const readStoredUser = () => {
   try {
     const fromStorage = tokenStorage.getUser?.();
@@ -47,6 +58,7 @@ const readStoredUser = () => {
   } catch {
     /* fall through */
   }
+
   try {
     return JSON.parse(localStorage.getItem("user") || "null");
   } catch {
@@ -56,19 +68,41 @@ const readStoredUser = () => {
 
 const getAccount = () => {
   const u = readStoredUser() || {};
+
   const email = u.email ?? u.user?.email ?? "";
-  const rawName = u.name ?? u.full_name ?? u.user?.name ?? "";
+
+  const rawName =
+    u.name ??
+    u.full_name ??
+    u.user?.name ??
+    u.user?.full_name ??
+    "";
+
   const name = titleCase(
-    rawName || (email ? email.split("@")[0].replace(/[._-]+/g, " ") : "")
+    rawName ||
+      (email ? email.split("@")[0].replace(/[._-]+/g, " ") : "")
   );
-  const role = String(u.role ?? u.user_role ?? "").toUpperCase();
+
+  // Read role from possible backend response structures
+  const rawRole =
+    u.role ??
+    u.user_role ??
+    u.user?.role ??
+    u.user?.user_role ??
+    "";
+
+  const role = String(rawRole).trim().toUpperCase();
 
   return {
     name: name || "Your Account",
     initials: name ? initialsOf(name) : "YO",
-    // ADMIN -> "Admin", EMPLOYEE -> "Employee"; shows "Account profile" if no role is stored
-    designation: role ? titleCase(role.replace(/[_-]+/g, " ")) : "Account profile",
+
+    designation: role
+      ? titleCase(role.replace(/[_-]+/g, " "))
+      : "Account profile",
+
     isAdmin: role === "ADMIN",
+
     color: accentFor(email || name || "user"),
   };
 };
@@ -82,6 +116,7 @@ export default function Sidebar({
 
   const handleLogout = () => {
     tokenStorage.clearSession?.();
+
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     sessionStorage.clear();
@@ -89,6 +124,11 @@ export default function Sidebar({
     onNavigate();
     navigate("/", { replace: true });
   };
+
+  // Hide admin-only navigation items for employees
+  const visibleMainItems = mainItems.filter(
+    (item) => !item.adminOnly || account.isAdmin
+  );
 
   return (
     <aside
@@ -131,7 +171,7 @@ export default function Sidebar({
 
       {/* Main navigation */}
       <nav aria-label="Main navigation" className="space-y-1">
-        {mainItems.map((item) => (
+        {visibleMainItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
@@ -192,9 +232,12 @@ export default function Sidebar({
             <p className="truncate text-sm font-medium text-white">
               {account.name}
             </p>
+
             <p
               className={`truncate text-xs ${
-                account.isAdmin ? "text-blue-300" : "text-slate-500"
+                account.isAdmin
+                  ? "text-blue-300"
+                  : "text-slate-500"
               }`}
             >
               {account.designation}
