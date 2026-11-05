@@ -126,7 +126,7 @@ export default function Sidebar({
 
       {/* Organization */}
       <p className="mb-2 truncate px-2 text-[10px] font-bold tracking-widest text-slate-500">
-        NORTHWIND LOGISTICS
+        RELAY WORKSPACE
       </p>
 
       {/* Main navigation */}
