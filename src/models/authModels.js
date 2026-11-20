@@ -1,9 +1,7 @@
 
- // src/models/authModels.js
-
-// ================================
+// ======================================
 // LOGIN MODEL
-// ================================
+// ======================================
 
 export const createLoginRequest = (email, password) => ({
   email: email.trim(),
@@ -43,20 +41,22 @@ export const normalizeLoginResponse = (response) => {
   };
 };
 
-// ================================
+// ======================================
 // ORGANIZATION REGISTRATION MODEL
-// ================================
+// ======================================
 
 export const createRegistrationRequest = ({
   name,
   email,
   password,
+  confirmPassword,
   organizationName,
 }) => {
   const payload = {
     name: name?.trim() || "",
     email: email?.trim() || "",
     password: password || "",
+    confirmPassword: confirmPassword || "",
     organizationName: organizationName?.trim() || "",
   };
 
@@ -68,12 +68,20 @@ export const createRegistrationRequest = ({
     throw new Error("Please enter your email address.");
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
     throw new Error("Please enter a valid email address.");
   }
 
   if (!payload.password) {
     throw new Error("Please enter your password.");
+  }
+
+  if (!payload.confirmPassword) {
+    throw new Error("Please confirm your password.");
+  }
+
+  if (payload.password !== payload.confirmPassword) {
+    throw new Error("Passwords do not match.");
   }
 
   if (payload.password.length < 8) {
@@ -87,38 +95,28 @@ export const createRegistrationRequest = ({
   return payload;
 };
 
+// ======================================
+// REGISTRATION RESPONSE
+// ======================================
+
 export const normalizeRegistrationResponse = (response) => {
   if (
     response?.success !== true ||
-    !response?.data?.user ||
-    !response?.data?.organization
+    !response?.data?.userId
   ) {
     throw new Error(
       response?.message || "Invalid registration response from server."
     );
   }
 
-  const { user, organization, emailConfirmationRequired } =
-    response.data;
-
   return {
     success: true,
     message:
       response.message ||
-      "Registration successful. Please check your email and confirm your account before logging in.",
-    user: {
-      user_id: user.user_id,
-      organization_id: user.organization_id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      created_at: user.created_at,
-    },
-    organization: {
-      organization_id: organization.organization_id,
-      name: organization.name,
-      created_at: organization.created_at,
-    },
-    emailConfirmationRequired: emailConfirmationRequired === true,
+      "Registration successful. Please check your email.",
+    userId: response.data.userId,
+    email: response.data.email,
+    emailConfirmationRequired:
+      response.data.emailConfirmationRequired === true,
   };
 };

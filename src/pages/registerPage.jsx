@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-
+import { toast } from "react-toastify";
 import { registerOrganization } from "../api/auth";
 
 const inputClass =
@@ -36,47 +36,32 @@ export default function Register() {
 
     if (submitting) return;
 
+    const normalizedEmail = form.email.trim().toLowerCase();
+
     if (
       !form.organization.trim() ||
       !form.fullName.trim() ||
-      !form.email.trim() ||
+      !normalizedEmail ||
       !form.password ||
       !form.confirmPassword
     ) {
-      toast.error("Please fill in all required fields.", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-      });
+      toast.error("Please fill in all required fields.");
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      toast.error("Passwords do not match.", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-      });
+      toast.error("Passwords do not match.");
       return;
     }
 
     if (form.password.length < 8) {
-      toast.error("Password must be at least 8 characters.", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "dark",
-      });
+      toast.error("Password must be at least 8 characters.");
       return;
     }
 
     if (!form.agree) {
       toast.error(
-        "Please accept the Terms of Service and Privacy Policy.",
-        {
-          position: "top-right",
-          autoClose: 3000,
-          theme: "dark",
-        }
+        "Please accept the Terms of Service and Privacy Policy."
       );
       return;
     }
@@ -85,16 +70,17 @@ export default function Register() {
 
     try {
       const result = await registerOrganization({
-        name: form.fullName.trim(),
-        email: form.email.trim(),
-        password: form.password,
-        organizationName: form.organization.trim(),
-      });
+           name: form.fullName.trim(),
+           email: form.email.trim(),
+           password: form.password,
+           confirmPassword: form.confirmPassword,
+           organizationName: form.organization.trim(),
+         });
 
       toast.success(
-        result.emailConfirmationRequired
-          ? "Registration successful! Please check your email and confirm your account before logging in."
-          : result.message || "Registration successful!",
+        result?.emailConfirmationRequired
+          ? "Registration successful! Please check your email and confirm your account."
+          : result?.message || "Registration successful!",
         {
           position: "top-right",
           autoClose: 6000,
@@ -102,7 +88,6 @@ export default function Register() {
         }
       );
 
-      // Keep the user on this page after successful registration.
       setForm({
         organization: "",
         fullName: "",
@@ -112,8 +97,12 @@ export default function Register() {
         agree: false,
       });
     } catch (err) {
+      console.error("Registration error:", err);
+
       toast.error(
-        err?.message || "Registration failed. Please try again.",
+        err?.response?.data?.message ||
+          err?.message ||
+          "Registration failed. Please try again.",
         {
           position: "top-right",
           autoClose: 5000,
@@ -127,9 +116,10 @@ export default function Register() {
 
   return (
     <div className="grid min-h-screen w-full grid-cols-1 bg-[#0a0e1a] md:grid-cols-2">
+
       {/* LEFT SIDE - Branding panel */}
       <div className="relative flex flex-col justify-between gap-10 overflow-hidden px-6 py-8 sm:px-8 md:gap-0 md:px-16 md:py-14">
-        {/* Background gradient */}
+
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -138,7 +128,6 @@ export default function Register() {
           }}
         />
 
-        {/* Background dots */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -178,11 +167,10 @@ export default function Register() {
           </h1>
 
           <p className="mb-9 max-w-md text-base leading-relaxed text-[#aab4d4] md:text-[17px]">
-            Create your Relay account and manage organizations, projects, and
-            support tickets in one organized workspace.
+            Create your Relay account and manage organizations, projects,
+            and support tickets in one organized workspace.
           </p>
 
-          {/* Features */}
           <div className="space-y-4">
             {[
               "Centralized ticket management",
@@ -210,6 +198,7 @@ export default function Register() {
 
       {/* RIGHT SIDE - Register form */}
       <div className="flex flex-col justify-center bg-[#0d1326] px-6 py-10 sm:px-8 md:px-16 lg:px-24 md:py-14">
+
         <form
           onSubmit={handleSubmit}
           className="mx-auto w-full max-w-sm"
@@ -275,6 +264,7 @@ export default function Register() {
             name="password"
             type="password"
             required
+            minLength={8}
             placeholder="Create a password"
             value={form.password}
             onChange={handleChange}
