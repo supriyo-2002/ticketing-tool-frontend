@@ -1,22 +1,52 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { tokenStorage } from "../utils/tokenStorage";
+import Skeleton from "../components/Skeleton";
+import { getProjectStatuses } from "../api/projectStatus";
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const EMPLOYEES_PATH = "/api/employees";
 const PROJECTS_PATH = "/api/projects";
-// Change to "PATCH" if your Postman collection uses PATCH for update
 const UPDATE_METHOD = "PUT";
+
+const fetchWithTimeout = async (url, options = {}, timeout = 15000) => {
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
 
 const authHeaders = () => {
   const token = tokenStorage.getAccessToken();
+
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
 
-const accents = ["#4a7cff", "#2ecf8e", "#f5a623", "#a78bfa", "#fb7185", "#38bdf8"];
+const accents = [
+  "#4a7cff",
+  "#2ecf8e",
+  "#f5a623",
+  "#a78bfa",
+  "#fb7185",
+  "#38bdf8",
+];
 
 const accentFor = (text = "") => {
   let sum = 0;
@@ -24,46 +54,66 @@ const accentFor = (text = "") => {
   return accents[sum % accents.length];
 };
 
-// Set to false if your backend doesn't accept a `status` field on projects
-const SUPPORTS_STATUS = true;
+/* ---------- STATUS HELPERS ---------- */
 
-const STATUSES = [
-  {
-    value: "Active",
+const STATUS_STYLES = {
+  active: {
     badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
     dot: "bg-emerald-400",
     chip: "border-emerald-500 bg-emerald-500/15 text-emerald-300",
   },
-  {
-    value: "On hold",
+  "on hold": {
     badge: "border-amber-500/30 bg-amber-500/10 text-amber-300",
     dot: "bg-amber-400",
     chip: "border-amber-500 bg-amber-500/15 text-amber-300",
   },
-  {
-    value: "Completed",
+  completed: {
     badge: "border-blue-500/30 bg-blue-500/10 text-blue-300",
     dot: "bg-blue-400",
     chip: "border-blue-500 bg-blue-500/15 text-blue-300",
   },
-  {
-    value: "Archived",
+  cancelled: {
+    badge: "border-rose-500/30 bg-rose-500/10 text-rose-300",
+    dot: "bg-rose-400",
+    chip: "border-rose-500 bg-rose-500/15 text-rose-300",
+  },
+  archived: {
     badge: "border-slate-500/30 bg-slate-500/10 text-slate-300",
     dot: "bg-slate-400",
     chip: "border-slate-400 bg-slate-500/15 text-slate-200",
   },
-];
-
-const normalizeStatus = (raw) => {
-  const key = String(raw ?? "").toLowerCase().replace(/[\s_-]+/g, "");
-  const hit = STATUSES.find(
-    (st) => st.value.toLowerCase().replace(/\s+/g, "") === key
-  );
-  return hit ? hit.value : "Active";
 };
 
-const statusStyle = (value) =>
-  STATUSES.find((st) => st.value === value) ?? STATUSES[0];
+const DEFAULT_STATUS_STYLE = {
+  badge: "border-slate-500/30 bg-slate-500/10 text-slate-300",
+  dot: "bg-slate-400",
+  chip: "border-slate-400 bg-slate-500/15 text-slate-200",
+};
+
+const normalizeKey = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+const normalizeStatus = (raw, statuses = []) => {
+  if (!raw) return statuses[0]?.name || "Unknown";
+
+  const match = statuses.find(
+    (item) =>
+      normalizeKey(item.name) === normalizeKey(raw) ||
+      item.status_id === raw
+  );
+
+  return match?.name || String(raw);
+};
+
+const statusStyle = (value) => {
+  return (
+    STATUS_STYLES[String(value || "").trim().toLowerCase()] ||
+    DEFAULT_STATUS_STYLE
+  );
+};
 
 const DATE_RANGES = [
   { value: "all", label: "All time", days: null },
@@ -80,32 +130,46 @@ const SORTS = [
 
 const findList = (value, preferredKeys = []) => {
   if (Array.isArray(value)) {
-    return value.every((item) => item && typeof item === "object") ? value : [];
+    return value.every((item) => item && typeof item === "object")
+      ? value
+      : [];
   }
+
   if (!value || typeof value !== "object") return [];
+
   for (const key of preferredKeys) {
     if (Array.isArray(value[key])) return findList(value[key]);
   }
+
   for (const key of Object.keys(value)) {
     const found = findList(value[key], preferredKeys);
     if (found.length) return found;
   }
+
   return [];
 };
 
 const messageFrom = (body, status, fallback) => {
   let message =
-    body?.message || (typeof body?.error === "string" ? body.error : "");
+    body?.message ||
+    (typeof body?.error === "string" ? body.error : "");
+
   if (!message && Array.isArray(body?.errors)) {
     message = body.errors.map((e) => e?.message || e).join(", ");
   }
+
   return `${message || fallback} (HTTP ${status})`;
 };
 
 const memberLabel = (member) => {
   if (!member || typeof member === "string") return "";
+
   return (
-    member.name ?? member.full_name ?? member.user?.name ?? member.email ?? ""
+    member.name ??
+    member.full_name ??
+    member.user?.name ??
+    member.email ??
+    ""
   );
 };
 
@@ -114,21 +178,52 @@ const memberId = (member) =>
     ? member
     : member?.user_id ?? member?.id ?? member?.user?.id ?? null;
 
-const toProject = (project) => {
+/* ---------- DATA NORMALIZERS ---------- */
+
+const toProject = (project, statuses = []) => {
   const rawMembers =
-    project.members ?? project.project_members ?? project.member_ids ?? [];
+    project.members ??
+    project.project_members ??
+    project.member_ids ??
+    [];
+
+  const rawStatus =
+    project.status?.name ??
+    project.project_status?.name ??
+    project.status ??
+    project.project_status ??
+    "";
+
+  const rawStatusId =
+    project.status_id ??
+    project.project_status_id ??
+    project.status?.status_id ??
+    project.project_status?.status_id ??
+    "";
+
+  const matchedStatus = statuses.find(
+    (item) =>
+      item.status_id === rawStatusId ||
+      normalizeKey(item.name) === normalizeKey(rawStatus)
+  );
+
   return {
     id: project.project_id ?? project.id,
     name: project.name ?? project.project_name ?? "Untitled project",
     description: project.description ?? "",
     createdAt: project.created_at ?? project.createdAt ?? null,
-    status: normalizeStatus(project.status ?? project.project_status),
+    status: matchedStatus?.name || normalizeStatus(
+      rawStatus || rawStatusId,
+      statuses
+    ),
+    statusId: matchedStatus?.status_id || rawStatusId,
     members: Array.isArray(rawMembers) ? rawMembers : [],
   };
 };
 
 const toEmployee = (employee) => {
   const email = employee.email ?? employee.user?.email ?? "";
+
   return {
     id:
       employee.user_id ??
@@ -147,9 +242,12 @@ const toEmployee = (employee) => {
 
 const currentUser = () => {
   const user = tokenStorage.getUser();
+
   if (!user) return null;
+
   const id = user.user_id ?? user.id ?? user.sub ?? null;
   if (!id) return null;
+
   return {
     id,
     email: user.email ?? "",
@@ -160,8 +258,10 @@ const currentUser = () => {
 
 const formatDate = (value) => {
   if (!value) return "—";
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
+
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -171,18 +271,23 @@ const formatDate = (value) => {
 
 const inputClasses =
   "w-full rounded-lg border border-[#293752] bg-[#101a2e] px-3.5 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30";
+
 const selectClasses =
   "w-full appearance-none rounded-lg border border-[#243049] bg-[#0f1729] px-4 py-3 pr-10 text-sm text-slate-100 outline-none transition focus:border-blue-500";
+
 const labelClasses = "mb-2 block text-xs font-semibold text-slate-400";
+
 const iconBtn =
   "flex h-8 w-8 items-center justify-center rounded-lg border border-[#293752] text-sm text-slate-300 transition hover:bg-[#1a2942] focus:outline-none focus:ring-2 focus:ring-blue-400";
 
-/* ---------- small reusable pieces ---------- */
+/* ---------- MODAL ---------- */
 
 function Modal({ title, subtitle, onClose, children, wide = false }) {
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
+
     window.addEventListener("keydown", onKey);
+
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
@@ -194,6 +299,7 @@ function Modal({ title, subtitle, onClose, children, wide = false }) {
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-black/70"
       />
+
       <div
         role="dialog"
         aria-modal="true"
@@ -204,19 +310,24 @@ function Modal({ title, subtitle, onClose, children, wide = false }) {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-white">{title}</h2>
+
             {subtitle && (
               <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
             )}
           </div>
+
           <button type="button" onClick={onClose} className={iconBtn}>
             ✕
           </button>
         </div>
+
         {children}
       </div>
     </div>
   );
 }
+
+/* ---------- MEMBER PICKER ---------- */
 
 function MemberPicker({
   options,
@@ -232,6 +343,7 @@ function MemberPicker({
   return (
     <div className="relative">
       <label className={labelClasses}>Assign members</label>
+
       <button
         type="button"
         disabled={options.length === 0 && !loading}
@@ -244,11 +356,12 @@ function MemberPicker({
                 selectedIds.length === 1 ? "member" : "members"
               } selected`
             : loading
-            ? "Loading members..."
-            : options.length === 0
-            ? "No members available"
-            : "Select project members"}
+              ? "Loading members..."
+              : options.length === 0
+                ? "No members available"
+                : "Select project members"}
         </span>
+
         <span className="text-slate-400">⌄</span>
       </button>
 
@@ -260,6 +373,7 @@ function MemberPicker({
             className="fixed inset-0 z-10 cursor-default"
             onClick={() => setOpen(false)}
           />
+
           <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-56 overflow-y-auto rounded-xl border border-[#293752] bg-[#0b1427] p-2 shadow-2xl">
             {options.map((option) => (
               <label
@@ -272,15 +386,18 @@ function MemberPicker({
                   onChange={() => onToggle(option.id)}
                   className="h-4 w-4 accent-blue-500"
                 />
+
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-white">
                     {option.name}
+
                     {option.isMe && (
                       <span className="ml-2 rounded-md bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
                         Admin
                       </span>
                     )}
                   </span>
+
                   {option.email && (
                     <span className="block truncate text-xs text-slate-500">
                       {option.email}
@@ -289,10 +406,17 @@ function MemberPicker({
                 </span>
               </label>
             ))}
+
             {loading && (
-              <p className="p-3 text-xs text-slate-400">Loading employees...</p>
+              <p className="p-3 text-xs text-slate-400">
+                Loading employees...
+              </p>
             )}
-            {error && <p className="p-3 text-xs text-amber-300">{error}</p>}
+
+            {error && (
+              <p className="p-3 text-xs text-amber-300">{error}</p>
+            )}
+
             {!loading && !hasOthers && (
               <p className="border-t border-[#293752] p-3 text-xs text-slate-500">
                 No other employees are available yet.
@@ -305,12 +429,16 @@ function MemberPicker({
   );
 }
 
+/* ---------- AVATAR STACK ---------- */
+
 function AvatarStack({ members }) {
   const named = members.filter((m) => memberLabel(m));
+
   return (
     <div className="flex -space-x-2">
       {named.slice(0, 3).map((member, index) => {
         const label = memberLabel(member);
+
         return (
           <span
             key={index}
@@ -326,10 +454,79 @@ function AvatarStack({ members }) {
   );
 }
 
-/* ---------- page ---------- */
+/* ---------- PROJECT SKELETON ---------- */
+
+function ProjectsTableSkeleton() {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead>
+          <tr className="border-b border-[#202c46] text-xs font-semibold text-slate-500">
+            <th className="px-5 py-3">Project</th>
+            <th className="px-3 py-3">Description</th>
+            <th className="px-3 py-3">Members</th>
+            <th className="px-3 py-3">Status</th>
+            <th className="px-3 py-3">Created</th>
+            <th className="px-5 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <tr
+              key={index}
+              className="border-b border-[#1a2640] last:border-0"
+            >
+              <td className="px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </td>
+
+              <td className="px-3 py-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-40" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              </td>
+
+              <td className="px-3 py-4">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-7 w-7 rounded-full" />
+                  <Skeleton className="h-7 w-7 rounded-full" />
+                  <Skeleton className="h-3 w-5" />
+                </div>
+              </td>
+
+              <td className="px-3 py-4">
+                <Skeleton className="h-6 w-20 rounded-lg" />
+              </td>
+
+              <td className="px-3 py-4">
+                <Skeleton className="h-3 w-20" />
+              </td>
+
+              <td className="px-5 py-4">
+                <div className="flex justify-end gap-2">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ---------- PROJECT PAGE ---------- */
 
 export default function Projects() {
   const navigate = useNavigate();
+
   const me = useMemo(() => currentUser(), []);
   const isAdmin = me?.role === "ADMIN";
 
@@ -341,6 +538,11 @@ export default function Projects() {
   const [employeesLoading, setEmployeesLoading] = useState(true);
   const [employeesError, setEmployeesError] = useState("");
 
+  /* STATUS API STATE */
+  const [statuses, setStatuses] = useState([]);
+  const [statusesLoading, setStatusesLoading] = useState(true);
+  const [statusesError, setStatusesError] = useState("");
+
   const [search, setSearch] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -349,15 +551,13 @@ export default function Projects() {
   const [sortBy, setSortBy] = useState("newest");
   const [success, setSuccess] = useState("");
 
-  // modal state: { type: "create" | "edit" | "view" | "delete", project }
   const [modal, setModal] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [viewError, setViewError] = useState("");
 
-  // form state (shared by create + edit)
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState("Active");
+  const [statusId, setStatusId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -368,41 +568,103 @@ export default function Projects() {
     navigate("/", { replace: true });
   }, [navigate]);
 
-  /* ----- API calls ----- */
+  /* ---------- LOAD PROJECT STATUSES ---------- */
 
-  const loadProjects = useCallback(async () => {
-    setLoading(true);
-    setLoadError("");
+  const loadStatuses = useCallback(async () => {
+    setStatusesLoading(true);
+    setStatusesError("");
+
     try {
-      const res = await fetch(`${API}${PROJECTS_PATH}`, {
-        headers: authHeaders(),
+      const data = await getProjectStatuses();
+
+      setStatuses(data);
+
+      setStatusId((current) => {
+        if (current && data.some((item) => item.status_id === current)) {
+          return current;
+        }
+
+        const active = data.find(
+          (item) => normalizeKey(item.name) === "active"
+        );
+
+        return active?.status_id || data[0]?.status_id || "";
       });
-      if (res.status === 401) return handleExpired();
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || body.success === false) {
-        throw new Error(messageFrom(body, res.status, "Could not load projects"));
-      }
-      setProjects(findList(body, ["projects", "items", "rows"]).map(toProject));
+
+      return data;
     } catch (error) {
-      setLoadError(error.message || "Something went wrong.");
+      setStatusesError(error.message || "Could not load project statuses.");
+      return [];
     } finally {
-      setLoading(false);
+      setStatusesLoading(false);
     }
-  }, [handleExpired]);
+  }, []);
+
+  /* ---------- LOAD PROJECTS ---------- */
+
+  const loadProjects = useCallback(
+    async (statusList = statuses) => {
+      setLoading(true);
+      setLoadError("");
+
+      try {
+        const res = await fetchWithTimeout(`${API}${PROJECTS_PATH}`, {
+          headers: authHeaders(),
+        });
+
+        if (res.status === 401) {
+          handleExpired();
+          return;
+        }
+
+        const body = await res.json().catch(() => ({}));
+
+        if (!res.ok || body.success === false) {
+          throw new Error(
+            messageFrom(body, res.status, "Could not load projects")
+          );
+        }
+
+        setProjects(
+          findList(body, ["projects", "items", "rows"]).map((project) =>
+            toProject(project, statusList)
+          )
+        );
+      } catch (error) {
+        setLoadError(error.message || "Something went wrong.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleExpired, statuses]
+  );
+
+  /* ---------- LOAD EMPLOYEES ---------- */
 
   const loadEmployees = useCallback(async () => {
     setEmployeesLoading(true);
     setEmployeesError("");
+
     try {
-      const res = await fetch(`${API}${EMPLOYEES_PATH}`, {
+      const res = await fetchWithTimeout(`${API}${EMPLOYEES_PATH}`, {
         headers: authHeaders(),
       });
-      if (res.status === 401) return handleExpired();
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || body.success === false) {
-        throw new Error(messageFrom(body, res.status, "Could not load employees"));
+
+      if (res.status === 401) {
+        handleExpired();
+        return;
       }
+
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok || body.success === false) {
+        throw new Error(
+          messageFrom(body, res.status, "Could not load employees")
+        );
+      }
+
       const orgId = currentUser()?.orgId;
+
       setEmployees(
         findList(body, ["employees", "users", "members", "items", "rows"])
           .map(toEmployee)
@@ -416,56 +678,120 @@ export default function Projects() {
     }
   }, [handleExpired]);
 
-  useEffect(() => {
-    loadProjects();
-    loadEmployees();
-  }, [loadProjects, loadEmployees]);
+  /* ---------- INITIAL LOAD ---------- */
 
-  // GET /api/projects/:id
+  useEffect(() => {
+    let cancelled = false;
+
+    const initialize = async () => {
+      const statusList = await loadStatuses();
+
+      if (cancelled) return;
+
+      await Promise.all([
+        loadProjects(statusList),
+        loadEmployees(),
+      ]);
+    };
+
+    initialize();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadStatuses, loadEmployees]);
+
+  /* ---------- REMAP PROJECT STATUSES ---------- */
+
+  useEffect(() => {
+    if (!statuses.length) return;
+
+    setProjects((current) =>
+      current.map((project) => toProject(project, statuses))
+    );
+
+    setModal((current) => {
+      if (!current?.project) return current;
+
+      return {
+        ...current,
+        project: toProject(current.project, statuses),
+      };
+    });
+  }, [statuses]);
+
+  /* ---------- FETCH PROJECT BY ID ---------- */
+
   const fetchProjectById = useCallback(
     async (id) => {
       setViewLoading(true);
       setViewError("");
+
       try {
-        const res = await fetch(
+        const res = await fetchWithTimeout(
           `${API}${PROJECTS_PATH}/${encodeURIComponent(id)}`,
           { headers: authHeaders() }
         );
-        if (res.status === 401) return handleExpired();
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok || body.success === false) {
-          throw new Error(messageFrom(body, res.status, "Could not load project"));
+
+        if (res.status === 401) {
+          handleExpired();
+          return;
         }
-        const raw = body.data?.project ?? body.data ?? body.project ?? body;
-        setModal({ type: "view", project: toProject(raw) });
+
+        const body = await res.json().catch(() => ({}));
+
+        if (!res.ok || body.success === false) {
+          throw new Error(
+            messageFrom(body, res.status, "Could not load project")
+          );
+        }
+
+        const raw =
+          body.data?.project ?? body.data ?? body.project ?? body;
+
+        setModal({
+          type: "view",
+          project: toProject(raw, statuses),
+        });
       } catch (error) {
         setViewError(error.message || "Could not load project.");
       } finally {
         setViewLoading(false);
       }
     },
-    [handleExpired]
+    [handleExpired, statuses]
   );
 
-  /* ----- member options ----- */
+  /* ---------- MEMBER OPTIONS ---------- */
 
   const memberOptions = useMemo(() => {
     const list = [];
+
     if (me?.id) {
-      list.push({ id: me.id, name: "You", email: me.email, isMe: true });
+      list.push({
+        id: me.id,
+        name: "You",
+        email: me.email,
+        isMe: true,
+      });
     }
+
     employees.forEach((e) => {
       if (e.id !== me?.id) list.push(e);
     });
+
     return list;
   }, [me, employees]);
 
-  const toggleMember = (id) =>
+  const toggleMember = (id) => {
     setSelectedIds((list) =>
-      list.includes(id) ? list.filter((i) => i !== id) : [...list, id]
+      list.includes(id)
+        ? list.filter((i) => i !== id)
+        : [...list, id]
     );
+  };
 
-  /* ----- modal openers ----- */
+  /* ---------- MODAL OPENERS ---------- */
 
   const closeModal = () => {
     setModal(null);
@@ -474,25 +800,57 @@ export default function Projects() {
   };
 
   const openCreate = () => {
+    const active = statuses.find(
+      (item) => normalizeKey(item.name) === "active"
+    );
+
     setName("");
     setDescription("");
-    setStatus("Active");
+    setStatusId(active?.status_id || statuses[0]?.status_id || "");
     setSelectedIds([]);
     setFormError("");
     setSuccess("");
     setModal({ type: "create" });
   };
 
-  const openEdit = (project) => {
-    setName(project.name);
-    setDescription(project.description);
-    setStatus(project.status);
-    setSelectedIds(project.members.map(memberId).filter(Boolean));
-    setFormError("");
-    setSuccess("");
-    setModal({ type: "edit", project });
-  };
+  // const openEdit = (project) => {
+  //   const matchedStatus = statuses.find(
+  //     (item) =>
+  //       item.status_id === project.statusId ||
+  //       normalizeKey(item.name) === normalizeKey(project.status)
+  //   );
 
+  //   setName(project.name);
+  //   setDescription(project.description);
+  //   setStatusId(matchedStatus?.status_id || project.statusId || "");
+  //   setSelectedIds(project.members.map(memberId).filter(Boolean));
+  //   setFormError("");
+  //   setSuccess("");
+  //   setModal({ type: "edit", project });
+  // };
+const openEdit = (project) => {
+  const matchedStatus = statuses.find(
+    (item) =>
+      item.status_id === project.statusId ||
+      normalizeKey(item.name) === normalizeKey(project.status)
+  );
+
+  setName(project.name);
+  setDescription(project.description);
+
+  // Set the existing project's status ID
+  setStatusId(
+    matchedStatus?.status_id ||
+    project.statusId ||
+    ""
+  );
+
+  setSelectedIds(project.members.map(memberId).filter(Boolean));
+  setFormError("");
+  setSuccess("");
+
+  setModal({ type: "edit", project });
+};
   const openDelete = (project) => {
     setFormError("");
     setSuccess("");
@@ -501,89 +859,203 @@ export default function Projects() {
 
   const openView = (project) => {
     setViewError("");
-    setModal({ type: "view", project }); // show list data instantly…
-    fetchProjectById(project.id); // …then refresh from GET /:id
+    setModal({ type: "view", project });
+    fetchProjectById(project.id);
   };
 
   const lookupProject = (event) => {
     event.preventDefault();
+
     const id = lookupId.trim();
     if (!id) return;
+
     setViewError("");
     fetchProjectById(id);
   };
 
-  /* ----- create / update / delete ----- */
+  /* ---------- CREATE / UPDATE ---------- */
 
+  // const submitForm = async (event) => {
+  //   event.preventDefault();
+
+  //   if (!isAdmin) return;
+
+  //   const cleanName = name.trim();
+
+  //   if (cleanName.length < 2) {
+  //     setFormError("Please enter a valid project name.");
+  //     return;
+  //   }
+
+  //   if (!statusId) {
+  //     setFormError("Please select a project status.");
+  //     return;
+  //   }
+
+  //   const editing = modal?.type === "edit";
+
+  //   setSaving(true);
+  //   setFormError("");
+
+  //   try {
+  //     const res = await fetchWithTimeout(
+  //       editing
+  //         ? `${API}${PROJECTS_PATH}/${encodeURIComponent(modal.project.id)}`
+  //         : `${API}${PROJECTS_PATH}`,
+  //       {
+  //         method: editing ? UPDATE_METHOD : "POST",
+  //         headers: authHeaders(),
+  //         body: JSON.stringify({
+  //           name: cleanName,
+  //           description: description.trim(),
+  //           member_ids: selectedIds,
+  //           status_id: statusId,
+  //         }),
+  //       }
+  //     );
+
+  //     if (res.status === 401) {
+  //       handleExpired();
+  //       return;
+  //     }
+
+  //     const body = await res.json().catch(() => ({}));
+
+  //     if (!res.ok || body.success === false) {
+  //       throw new Error(
+  //         messageFrom(
+  //           body,
+  //           res.status,
+  //           editing
+  //             ? "Could not update project"
+  //             : "Could not create project"
+  //         )
+  //       );
+  //     }
+
+  //     setSuccess(
+  //       body.message ||
+  //         `Project "${cleanName}" ${editing ? "updated" : "created"}.`
+  //     );
+
+  //     closeModal();
+  //     await loadProjects();
+  //   } catch (error) {
+  //     setFormError(error.message || "Something went wrong.");
+  //   } finally {
+  //     setSaving(false);
+  //   }
+  // };
   const submitForm = async (event) => {
-    event.preventDefault();
-    if (!isAdmin) return;
+  event.preventDefault();
 
-    const cleanName = name.trim();
-    if (cleanName.length < 2) {
-      setFormError("Please enter a valid project name.");
+  if (!isAdmin) return;
+
+  const cleanName = name.trim();
+
+  if (cleanName.length < 2) {
+    setFormError("Please enter a valid project name.");
+    return;
+  }
+
+  if (!statusId) {
+    setFormError("Please select a project status.");
+    return;
+  }
+
+  const editing = modal?.type === "edit";
+
+  setSaving(true);
+  setFormError("");
+
+  try {
+    const payload = {
+      name: cleanName,
+      description: description.trim(),
+      member_ids: selectedIds,
+      status_id: statusId,
+    };
+
+    const res = await fetchWithTimeout(
+      editing
+        ? `${API}${PROJECTS_PATH}/${encodeURIComponent(modal.project.id)}`
+        : `${API}${PROJECTS_PATH}`,
+      {
+        method: editing ? UPDATE_METHOD : "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (res.status === 401) {
+      handleExpired();
       return;
     }
 
-    const editing = modal?.type === "edit";
-    setSaving(true);
-    setFormError("");
+    const body = await res.json().catch(() => ({}));
 
-    try {
-      const res = await fetch(
-        editing
-          ? `${API}${PROJECTS_PATH}/${encodeURIComponent(modal.project.id)}`
-          : `${API}${PROJECTS_PATH}`,
-        {
-          method: editing ? UPDATE_METHOD : "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({
-            name: cleanName,
-            description: description.trim(),
-            member_ids: selectedIds,
-            ...(SUPPORTS_STATUS ? { status } : {}),
-          }),
-        }
+    if (!res.ok || body.success === false) {
+      throw new Error(
+        messageFrom(
+          body,
+          res.status,
+          editing
+            ? "Could not update project"
+            : "Could not create project"
+        )
       );
-      if (res.status === 401) return handleExpired();
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || body.success === false) {
-        throw new Error(
-          messageFrom(
-            body,
-            res.status,
-            editing ? "Could not update project" : "Could not create project"
-          )
-        );
-      }
-      setSuccess(
-        body.message ||
-          `Project "${cleanName}" ${editing ? "updated" : "created"}.`
-      );
-      closeModal();
-      await loadProjects();
-    } catch (error) {
-      setFormError(error.message || "Something went wrong.");
-    } finally {
-      setSaving(false);
     }
-  };
+
+    setSuccess(
+      body.message ||
+        `Project "${cleanName}" ${editing ? "updated" : "created"}.`
+    );
+
+    closeModal();
+
+    // Fetch updated project data from backend
+    await loadProjects();
+  } catch (error) {
+    setFormError(error.message || "Something went wrong.");
+  } finally {
+    setSaving(false);
+  }
+};
+
+  /* ---------- DELETE PROJECT ---------- */
 
   const confirmDelete = async () => {
     if (!isAdmin || !modal?.project) return;
+
     setSaving(true);
     setFormError("");
+
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `${API}${PROJECTS_PATH}/${encodeURIComponent(modal.project.id)}`,
-        { method: "DELETE", headers: authHeaders() }
+        {
+          method: "DELETE",
+          headers: authHeaders(),
+        }
       );
-      if (res.status === 401) return handleExpired();
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || body.success === false) {
-        throw new Error(messageFrom(body, res.status, "Could not delete project"));
+
+      if (res.status === 401) {
+        handleExpired();
+        return;
       }
-      setSuccess(body.message || `Project "${modal.project.name}" deleted.`);
+
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok || body.success === false) {
+        throw new Error(
+          messageFrom(body, res.status, "Could not delete project")
+        );
+      }
+
+      setSuccess(
+        body.message || `Project "${modal.project.name}" deleted.`
+      );
+
       closeModal();
       await loadProjects();
     } catch (error) {
@@ -593,7 +1065,7 @@ export default function Projects() {
     }
   };
 
-  /* ----- search ----- */
+  /* ---------- SEARCH AND FILTERS ---------- */
 
   const query = search.trim().toLowerCase();
 
@@ -602,36 +1074,57 @@ export default function Projects() {
     const cutoff = days ? Date.now() - days * 86400000 : null;
 
     const list = projects.filter((p) => {
-      if (statusFilter !== "All" && p.status !== statusFilter) return false;
+      if (statusFilter !== "All" && p.status !== statusFilter) {
+        return false;
+      }
 
       if (
         memberFilter !== "all" &&
-        !p.members.some((m) => String(memberId(m)) === memberFilter)
+        !p.members.some(
+          (m) => String(memberId(m)) === memberFilter
+        )
       ) {
         return false;
       }
 
       if (cutoff) {
-        const t = p.createdAt ? new Date(p.createdAt).getTime() : NaN;
+        const t = p.createdAt
+          ? new Date(p.createdAt).getTime()
+          : NaN;
+
         if (Number.isNaN(t) || t < cutoff) return false;
       }
 
       if (!query) return true;
-      const haystack = `${p.name} ${p.description} ${p.status} ${p.members
-        .map(memberLabel)
-        .join(" ")}`.toLowerCase();
+
+      const haystack = `
+        ${p.name}
+        ${p.description}
+        ${p.status}
+        ${p.members.map(memberLabel).join(" ")}
+      `.toLowerCase();
+
       return haystack.includes(query);
     });
 
-    const time = (p) => (p.createdAt ? new Date(p.createdAt).getTime() : 0);
+    const time = (p) =>
+      p.createdAt ? new Date(p.createdAt).getTime() : 0;
+
     return [...list].sort((a, b) =>
       sortBy === "name"
         ? a.name.localeCompare(b.name)
         : sortBy === "oldest"
-        ? time(a) - time(b)
-        : time(b) - time(a)
+          ? time(a) - time(b)
+          : time(b) - time(a)
     );
-  }, [projects, query, statusFilter, memberFilter, rangeFilter, sortBy]);
+  }, [
+    projects,
+    query,
+    statusFilter,
+    memberFilter,
+    rangeFilter,
+    sortBy,
+  ]);
 
   const filtersActive =
     statusFilter !== "All" ||
@@ -646,18 +1139,21 @@ export default function Projects() {
     setSearch("");
   };
 
-  /* ----- render ----- */
+  const formOpen =
+    modal?.type === "create" || modal?.type === "edit";
 
-  const formOpen = modal?.type === "create" || modal?.type === "edit";
+  /* ---------- RENDER ---------- */
 
   return (
     <div className="min-w-0 w-full space-y-6 text-slate-100">
       {/* PAGE HEADER */}
+
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             Projects
           </h1>
+
           <p className="mt-1 text-sm text-slate-400">
             {loading
               ? "Loading projects..."
@@ -679,6 +1175,8 @@ export default function Projects() {
         )}
       </div>
 
+      {/* SUCCESS MESSAGE */}
+
       {success && (
         <div
           role="status"
@@ -688,15 +1186,44 @@ export default function Projects() {
         </div>
       )}
 
+      {/* STATUS API ERROR */}
+
+      {statusesError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
+        >
+          <span>{statusesError}</span>
+
+          <button
+            type="button"
+            onClick={loadStatuses}
+            className="rounded-lg border border-rose-400/40 px-3 py-1.5 font-semibold hover:bg-rose-500/10"
+          >
+            Reload statuses
+          </button>
+        </div>
+      )}
+
       {/* STATUS CHIPS */}
-      <div className="flex flex-wrap gap-3" role="tablist" aria-label="Filter by status">
-        {["All", ...STATUSES.map((st) => st.value)].map((value) => {
+
+      <div
+        className="flex flex-wrap gap-3"
+        role="tablist"
+        aria-label="Filter by status"
+      >
+        {[
+          "All",
+          ...statuses.map((item) => item.name),
+        ].map((value) => {
           const active = statusFilter === value;
+
           const chipColor = active
             ? value === "All"
               ? "border-blue-500 bg-blue-500/15 text-blue-300"
               : statusStyle(value).chip
             : "border-[#243049] bg-[#0f1729] text-slate-300 hover:bg-[#16213a]";
+
           return (
             <button
               key={value}
@@ -707,15 +1234,26 @@ export default function Projects() {
               className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${chipColor}`}
             >
               {value !== "All" && (
-                <span className={`h-2 w-2 rounded-full ${statusStyle(value).dot}`} />
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    statusStyle(value).dot
+                  }`}
+                />
               )}
               {value}
             </button>
           );
         })}
+
+        {statusesLoading && (
+          <span className="self-center text-xs text-slate-500">
+            Loading statuses...
+          </span>
+        )}
       </div>
 
       {/* DROPDOWN FILTERS */}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {[
           {
@@ -750,6 +1288,7 @@ export default function Projects() {
             <label htmlFor={f.id} className="sr-only">
               {f.label}
             </label>
+
             <select
               id={f.id}
               value={f.value}
@@ -762,6 +1301,7 @@ export default function Projects() {
                 </option>
               ))}
             </select>
+
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400">
               ⌄
             </span>
@@ -769,12 +1309,14 @@ export default function Projects() {
         ))}
       </div>
 
-      {/* SEARCH + OPEN BY ID */}
+      {/* SEARCH AND LOOKUP */}
+
       <div className="flex flex-col gap-3 lg:flex-row">
         <div className="flex-1">
           <label htmlFor="project-search" className="sr-only">
             Search projects
           </label>
+
           <input
             id="project-search"
             type="search"
@@ -789,6 +1331,7 @@ export default function Projects() {
           <label htmlFor="project-lookup" className="sr-only">
             Open project by ID
           </label>
+
           <input
             id="project-lookup"
             type="text"
@@ -797,6 +1340,7 @@ export default function Projects() {
             placeholder="Open project by ID"
             className="min-w-0 flex-1 rounded-lg border border-[#243049] bg-[#0f1729] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500"
           />
+
           <button
             type="submit"
             disabled={!lookupId.trim() || viewLoading}
@@ -807,6 +1351,8 @@ export default function Projects() {
         </form>
       </div>
 
+      {/* VIEW ERROR */}
+
       {viewError && !modal && (
         <p
           role="alert"
@@ -816,15 +1362,18 @@ export default function Projects() {
         </p>
       )}
 
+      {/* LOAD ERROR */}
+
       {loadError && (
         <div
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
         >
           <span>{loadError}</span>
+
           <button
             type="button"
-            onClick={loadProjects}
+            onClick={() => loadProjects()}
             className="rounded-lg border border-rose-400/40 px-3 py-1.5 font-semibold hover:bg-rose-500/10"
           >
             Try again
@@ -833,30 +1382,36 @@ export default function Projects() {
       )}
 
       {/* PROJECT LIST */}
+
       <div className="overflow-hidden rounded-xl border border-[#202c46] bg-[#101a2e]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#202c46] px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">All projects</h2>
+            <h2 className="text-lg font-semibold text-white">
+              All projects
+            </h2>
+
             <p className="mt-1 text-xs text-slate-500">
               Manage and track your organization's projects.
             </p>
           </div>
+
           <span className="rounded-lg border border-[#293752] px-3 py-2 text-xs text-slate-400">
-            {visibleProjects.length} displayed
+            {loading ? "Loading..." : `${visibleProjects.length} displayed`}
           </span>
         </div>
 
         {loading ? (
-          <div className="py-16 text-center">
-            <div className="mx-auto mb-3 h-7 w-7 animate-spin rounded-full border-2 border-slate-600 border-t-blue-500" />
-            <p className="text-sm text-slate-400">Loading projects...</p>
-          </div>
+          <ProjectsTableSkeleton />
         ) : visibleProjects.length === 0 ? (
           <div className="px-5 py-16 text-center">
             <div className="mb-3 text-3xl text-slate-500">◫</div>
+
             <h3 className="text-base font-semibold text-white">
-              {projects.length === 0 ? "No projects yet" : "No matching projects"}
+              {projects.length === 0
+                ? "No projects yet"
+                : "No matching projects"}
             </h3>
+
             <p className="mt-2 text-sm text-slate-500">
               {projects.length === 0
                 ? isAdmin
@@ -864,6 +1419,7 @@ export default function Projects() {
                   : "An admin can create the first project."
                 : "Try a different search or clear your filters."}
             </p>
+
             {projects.length > 0 && filtersActive && (
               <button
                 type="button"
@@ -873,6 +1429,7 @@ export default function Projects() {
                 Clear filters
               </button>
             )}
+
             {projects.length === 0 && isAdmin && (
               <button
                 type="button"
@@ -893,9 +1450,12 @@ export default function Projects() {
                   <th className="px-3 py-3 font-semibold">Members</th>
                   <th className="px-3 py-3 font-semibold">Status</th>
                   <th className="px-3 py-3 font-semibold">Created</th>
-                  <th className="px-5 py-3 text-right font-semibold">Actions</th>
+                  <th className="px-5 py-3 text-right font-semibold">
+                    Actions
+                  </th>
                 </tr>
               </thead>
+
               <tbody>
                 {visibleProjects.map((project) => (
                   <tr
@@ -910,10 +1470,13 @@ export default function Projects() {
                       >
                         <span
                           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold text-[#08101e]"
-                          style={{ backgroundColor: accentFor(project.name) }}
+                          style={{
+                            backgroundColor: accentFor(project.name),
+                          }}
                         >
                           {project.name.slice(0, 1).toUpperCase()}
                         </span>
+
                         <span
                           className="max-w-[200px] truncate font-semibold text-white hover:text-blue-300"
                           title={project.name}
@@ -922,19 +1485,23 @@ export default function Projects() {
                         </span>
                       </button>
                     </td>
+
                     <td className="max-w-[260px] px-3 py-4 text-slate-400">
                       <span className="line-clamp-2">
                         {project.description || "No description available."}
                       </span>
                     </td>
+
                     <td className="px-3 py-4">
                       <div className="flex items-center gap-2">
                         <AvatarStack members={project.members} />
+
                         <span className="text-xs text-slate-400">
                           {project.members.length}
                         </span>
                       </div>
                     </td>
+
                     <td className="px-3 py-4">
                       <span
                         className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-semibold ${
@@ -949,9 +1516,11 @@ export default function Projects() {
                         {project.status}
                       </span>
                     </td>
+
                     <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500">
                       {formatDate(project.createdAt)}
                     </td>
+
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-2">
                         <button
@@ -963,6 +1532,7 @@ export default function Projects() {
                         >
                           👁
                         </button>
+
                         {isAdmin && (
                           <>
                             <button
@@ -974,6 +1544,7 @@ export default function Projects() {
                             >
                               ✎
                             </button>
+
                             <button
                               type="button"
                               title="Delete project"
@@ -996,10 +1567,15 @@ export default function Projects() {
       </div>
 
       {/* CREATE / EDIT MODAL */}
+
       {formOpen && isAdmin && (
         <Modal
           wide
-          title={modal.type === "edit" ? "Edit project" : "Create new project"}
+          title={
+            modal.type === "edit"
+              ? "Edit project"
+              : "Create new project"
+          }
           subtitle={
             modal.type === "edit"
               ? "Update the project details and members."
@@ -1013,6 +1589,7 @@ export default function Projects() {
                 <label htmlFor="project-name" className={labelClasses}>
                   Project name *
                 </label>
+
                 <input
                   id="project-name"
                   type="text"
@@ -1027,10 +1604,15 @@ export default function Projects() {
                   className={inputClasses}
                 />
               </div>
+
               <div>
-                <label htmlFor="project-description" className={labelClasses}>
+                <label
+                  htmlFor="project-description"
+                  className={labelClasses}
+                >
                   Description
                 </label>
+
                 <input
                   id="project-description"
                   type="text"
@@ -1046,30 +1628,57 @@ export default function Projects() {
               </div>
             </div>
 
-            {SUPPORTS_STATUS && (
-              <div>
-                <label htmlFor="project-status" className={labelClasses}>
-                  Status
-                </label>
-                <div className="relative">
-                  <select
-                    id="project-status"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className={selectClasses}
-                  >
-                    {STATUSES.map((st) => (
-                      <option key={st.value} value={st.value}>
-                        {st.value}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                    ⌄
-                  </span>
-                </div>
+            {/* DYNAMIC STATUS DROPDOWN */}
+
+            <div>
+              <label htmlFor="project-status" className={labelClasses}>
+                Status *
+              </label>
+
+              <div className="relative">
+                <select
+                  id="project-status"
+                  value={statusId}
+                  onChange={(e) => {
+                    setStatusId(e.target.value);
+                    setFormError("");
+                  }}
+                  disabled={statusesLoading || statuses.length === 0}
+                  className={`${selectClasses} disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  <option value="">
+                    {statusesLoading
+                      ? "Loading statuses..."
+                      : statuses.length === 0
+                        ? "No statuses available"
+                        : "Select project status"}
+                  </option>
+
+                  {statuses.map((item) => (
+                    <option
+                      key={item.status_id}
+                      value={item.status_id}
+                    >
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                  ⌄
+                </span>
               </div>
-            )}
+
+              {statusesError && (
+                <button
+                  type="button"
+                  onClick={loadStatuses}
+                  className="mt-2 text-xs font-semibold text-blue-400 hover:text-blue-300"
+                >
+                  Reload statuses
+                </button>
+              )}
+            </div>
 
             <MemberPicker
               options={memberOptions}
@@ -1108,9 +1717,10 @@ export default function Projects() {
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || statusesLoading || !statusId}
                 className="rounded-lg bg-[#2160f5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving
@@ -1118,15 +1728,16 @@ export default function Projects() {
                     ? "Saving..."
                     : "Creating..."
                   : modal.type === "edit"
-                  ? "Save changes"
-                  : "Create project"}
+                    ? "Save changes"
+                    : "Create project"}
               </button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* DELETE CONFIRM */}
+      {/* DELETE CONFIRMATION */}
+
       {modal?.type === "delete" && isAdmin && (
         <Modal
           title="Delete project?"
@@ -1157,6 +1768,7 @@ export default function Projects() {
             >
               Cancel
             </button>
+
             <button
               type="button"
               onClick={confirmDelete}
@@ -1169,7 +1781,8 @@ export default function Projects() {
         </Modal>
       )}
 
-      {/* VIEW DETAILS (fetched by project ID) */}
+      {/* VIEW PROJECT DETAILS */}
+
       {modal?.type === "view" && (
         <Modal
           wide
@@ -1178,8 +1791,11 @@ export default function Projects() {
           onClose={closeModal}
         >
           {viewLoading && (
-            <p className="mb-3 text-xs text-slate-400">Refreshing details...</p>
+            <p className="mb-3 text-xs text-slate-400">
+              Refreshing details...
+            </p>
           )}
+
           {viewError && (
             <p
               role="alert"
@@ -1192,6 +1808,7 @@ export default function Projects() {
           <div className="space-y-5">
             <div>
               <p className={labelClasses}>Description</p>
+
               <p className="text-sm leading-6 text-slate-300">
                 {modal.project.description || "No description available."}
               </p>
@@ -1199,6 +1816,7 @@ export default function Projects() {
 
             <div>
               <p className={labelClasses}>Status</p>
+
               <span
                 className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold ${
                   statusStyle(modal.project.status).badge
@@ -1215,6 +1833,7 @@ export default function Projects() {
 
             <div>
               <p className={labelClasses}>Created</p>
+
               <p className="text-sm text-slate-300">
                 {formatDate(modal.project.createdAt)}
               </p>
@@ -1224,12 +1843,16 @@ export default function Projects() {
               <p className={labelClasses}>
                 Members ({modal.project.members.length})
               </p>
+
               {modal.project.members.length === 0 ? (
-                <p className="text-sm text-slate-500">No members assigned.</p>
+                <p className="text-sm text-slate-500">
+                  No members assigned.
+                </p>
               ) : (
                 <ul className="grid gap-2 sm:grid-cols-2">
                   {modal.project.members.map((member, index) => {
                     const label = memberLabel(member) || "Member";
+
                     return (
                       <li
                         key={index}
@@ -1237,10 +1860,13 @@ export default function Projects() {
                       >
                         <span
                           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-[#08101e]"
-                          style={{ backgroundColor: accentFor(label) }}
+                          style={{
+                            backgroundColor: accentFor(label),
+                          }}
                         >
                           {label.slice(0, 2).toUpperCase()}
                         </span>
+
                         <span className="truncate text-sm text-white">
                           {label}
                         </span>
@@ -1261,6 +1887,7 @@ export default function Projects() {
               >
                 Delete
               </button>
+
               <button
                 type="button"
                 onClick={() => openEdit(modal.project)}

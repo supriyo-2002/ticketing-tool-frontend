@@ -6,7 +6,7 @@ export default function Teams() {
     { name: "Mara Patel", initials: "MP", role: "Project Member" },
     { name: "You", initials: "YO", role: "Support Lead" },
   ];
-
+   
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-widest text-blue-400">
