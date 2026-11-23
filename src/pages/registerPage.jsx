@@ -21,9 +21,12 @@ export default function Register() {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    setSuccessMessage("");
 
     setForm((prev) => ({
       ...prev,
@@ -35,6 +38,8 @@ export default function Register() {
     e.preventDefault();
 
     if (submitting) return;
+
+    setSuccessMessage("");
 
     const normalizedEmail = form.email.trim().toLowerCase();
 
@@ -70,22 +75,17 @@ export default function Register() {
 
     try {
       const result = await registerOrganization({
-           name: form.fullName.trim(),
-           email: form.email.trim(),
-           password: form.password,
-           confirmPassword: form.confirmPassword,
-           organizationName: form.organization.trim(),
-         });
+        name: form.fullName.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        organizationName: form.organization.trim(),
+      });
 
-      toast.success(
+      setSuccessMessage(
         result?.emailConfirmationRequired
           ? "Registration successful! Please check your email and confirm your account."
-          : result?.message || "Registration successful!",
-        {
-          position: "top-right",
-          autoClose: 6000,
-          theme: "dark",
-        }
+          : result?.message || "Registration successful!"
       );
 
       setForm({
@@ -96,6 +96,7 @@ export default function Register() {
         confirmPassword: "",
         agree: false,
       });
+
     } catch (err) {
       console.error("Registration error:", err);
 
@@ -109,6 +110,7 @@ export default function Register() {
           theme: "dark",
         }
       );
+
     } finally {
       setSubmitting(false);
     }
@@ -210,6 +212,17 @@ export default function Register() {
           <p className="mb-8 text-[15px] leading-relaxed text-[#aab4d4]">
             Enter your details to create your Relay account.
           </p>
+
+          {/* Inline success message */}
+          {successMessage && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mb-5 rounded-lg border border-[#087d68] bg-[#0b2b32] px-4 py-3 text-sm leading-relaxed text-[#34ebc1]"
+            >
+              {successMessage}
+            </div>
+          )}
 
           <label htmlFor="organization" className={labelClass}>
             Organization

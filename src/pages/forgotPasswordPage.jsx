@@ -89,9 +89,22 @@ const ForgotPasswordPage = () => {
 
         {/* Relay Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-              <span className="text-white text-xl font-bold">R</span>
+          <div className="flex items-center justify-center gap-3 mb-3">
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-gradient-to-br from-[#5b6ef5] to-[#3d4bc7] shadow-[0_4px_14px_rgba(91,110,245,0.35)]">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-5 w-5"
+              >
+                <path
+                  d="M5 12.5L10 17L19 7"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
 
             <h1 className="text-3xl font-bold text-white tracking-wide">
@@ -196,6 +209,7 @@ const ForgotPasswordPage = () => {
           </div>
         </div>
 
+        {/* Footer */}
         <p className="text-center text-gray-600 text-xs mt-7">
           © 2026 Relay. All rights reserved.
         </p>

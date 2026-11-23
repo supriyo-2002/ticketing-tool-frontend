@@ -1,5 +1,3 @@
-
-
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { tokenStorage } from "../utils/tokenStorage";
 
@@ -8,6 +6,7 @@ const mainItems = [
   { label: "Projects", icon: "▱", path: "/projects" },
   { label: "Tickets", icon: "▤", path: "/tickets" },
   { label: "Invitation", icon: "▷", path: "/invites", adminOnly: true },
+  { label: "Employees", icon: "◉", path: "/employees", adminOnly: true },
 ];
 
 const linkClasses = ({ isActive }) =>
@@ -122,7 +121,7 @@ export default function Sidebar({
     sessionStorage.clear();
 
     onNavigate();
-    navigate("/", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   // Hide admin-only navigation items for employees

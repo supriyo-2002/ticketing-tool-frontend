@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -7,7 +8,9 @@ const API_ROOT = (
   "https://ticketing-tool-backend-teal.vercel.app"
 ).replace(/\/+$/, "");
 
-const API_BASE = API_ROOT.endsWith("/api") ? API_ROOT : `${API_ROOT}/api`;
+const API_BASE = API_ROOT.endsWith("/api")
+  ? API_ROOT
+  : `${API_ROOT}/api`;
 
 const RESET_PASSWORD_API = `${API_BASE}/auth/reset-password`;
 
@@ -29,8 +32,7 @@ const ResetPasswordPage = () => {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [countdown, setCountdown] = useState(REDIRECT_SECONDS);
 
-  // Read tokens ONCE on first render. Supabase may send them in the query
-  // string (?token_hash=...) or in the URL hash (#access_token=...&refresh_token=...).
+  // Read tokens from query string or URL hash
   const [tokens] = useState(() => {
     const hashParams = new URLSearchParams(
       window.location.hash.replace(/^#/, "")
@@ -43,15 +45,17 @@ const ResetPasswordPage = () => {
         hashParams.get("token_hash") ||
         hashParams.get("token") ||
         "",
+
       accessToken:
         hashParams.get("access_token") ||
         searchParams.get("access_token") ||
         "",
-      // NEW: refresh token is also needed by the backend
+
       refreshToken:
         hashParams.get("refresh_token") ||
         searchParams.get("refresh_token") ||
         "",
+
       linkError:
         hashParams.get("error_description") ||
         searchParams.get("error_description") ||
@@ -61,17 +65,17 @@ const ResetPasswordPage = () => {
 
   const resetToken = tokens.tokenHash || tokens.accessToken;
 
-  // Show a friendly message if Supabase says the link is expired/invalid.
+  // Handle invalid or expired reset links
   useEffect(() => {
     if (tokens.linkError) {
       setError(
-        decodeURIComponent(tokens.linkError.replace(/\+/g, " ")) +
+        tokens.linkError.replace(/\+/g, " ") +
           " Please request a new reset email."
       );
     }
   }, [tokens.linkError]);
 
-  // Countdown -> redirect to login after 5 seconds.
+  // Redirect after successful password reset
   useEffect(() => {
     if (!showSuccessPopup) return;
 
@@ -80,7 +84,10 @@ const ResetPasswordPage = () => {
       return;
     }
 
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    const timer = setTimeout(() => {
+      setCountdown((c) => c - 1);
+    }, 1000);
+
     return () => clearTimeout(timer);
   }, [showSuccessPopup, countdown, navigate]);
 
@@ -113,8 +120,11 @@ const ResetPasswordPage = () => {
     try {
       setLoading(true);
 
-      // NEW: send token_hash if present, otherwise access_token + refresh_token
-      const payload = { password, confirmPassword };
+      // Send token_hash or access_token + refresh_token
+      const payload = {
+        password,
+        confirmPassword,
+      };
 
       if (tokens.tokenHash) {
         payload.token_hash = tokens.tokenHash;
@@ -145,14 +155,21 @@ const ResetPasswordPage = () => {
       setPassword("");
       setConfirmPassword("");
 
-      // Remove token from the address bar, then show popup.
-      window.history.replaceState(null, "", window.location.pathname);
+      // Remove tokens from the address bar
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname
+      );
 
       setCountdown(REDIRECT_SECONDS);
       setShowSuccessPopup(true);
     } catch (err) {
       console.error("Reset password error:", err);
-      setError(err.message || "Unable to reset password. Please try again.");
+
+      setError(
+        err.message || "Unable to reset password. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -161,21 +178,40 @@ const ResetPasswordPage = () => {
   return (
     <div className="min-h-screen bg-[#080d18] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
+
         {/* Relay Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-              <span className="text-white text-xl font-bold">R</span>
+          <div className="flex items-center justify-center gap-3 mb-3">
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-gradient-to-br from-[#5b6ef5] to-[#3d4bc7] shadow-[0_4px_14px_rgba(91,110,245,0.35)]">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-5 w-5"
+              >
+                <path
+                  d="M5 12.5L10 17L19 7"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
+
             <h1 className="text-3xl font-bold text-white tracking-wide">
               Relay
             </h1>
           </div>
-          <p className="text-gray-400 text-sm">Ticket Management Platform</p>
+
+          <p className="text-gray-400 text-sm">
+            Ticket Management Platform
+          </p>
         </div>
 
         {/* Main Card */}
         <div className="bg-[#111827] border border-gray-800 rounded-2xl p-7 sm:p-9 shadow-2xl">
+
           {/* Password Icon */}
           <div className="flex justify-center mb-6">
             <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
@@ -202,6 +238,7 @@ const ResetPasswordPage = () => {
             <h2 className="text-2xl font-bold text-white mb-3">
               Reset Your Password
             </h2>
+
             <p className="text-gray-400 text-sm leading-6">
               Create a new password for your Relay account. Enter your new
               password below.
@@ -220,11 +257,13 @@ const ResetPasswordPage = () => {
 
           {/* Form */}
           <form onSubmit={handleResetPassword}>
+
             {/* New Password */}
             <div className="mb-5">
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 New Password
               </label>
+
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -236,6 +275,7 @@ const ResetPasswordPage = () => {
                   disabled={loading || showSuccessPopup}
                   className="w-full bg-[#0b1220] border border-gray-700 rounded-xl px-4 py-3.5 pr-16 text-white placeholder-gray-500 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60"
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -244,6 +284,7 @@ const ResetPasswordPage = () => {
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
+
               <p className="text-xs text-gray-500 mt-2">
                 Password must contain at least 8 characters.
               </p>
@@ -254,6 +295,7 @@ const ResetPasswordPage = () => {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Confirm Password
               </label>
+
               <div className="relative">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
@@ -265,9 +307,12 @@ const ResetPasswordPage = () => {
                   disabled={loading || showSuccessPopup}
                   className="w-full bg-[#0b1220] border border-gray-700 rounded-xl px-4 py-3.5 pr-16 text-white placeholder-gray-500 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60"
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onClick={() =>
+                    setShowConfirmPassword(!showConfirmPassword)
+                  }
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-blue-400 hover:text-blue-300"
                 >
                   {showConfirmPassword ? "Hide" : "Show"}
@@ -297,6 +342,7 @@ const ResetPasswordPage = () => {
           </div>
         </div>
 
+        {/* Footer */}
         <p className="text-center text-gray-600 text-xs mt-7">
           © 2026 Relay. All rights reserved.
         </p>
@@ -311,6 +357,7 @@ const ResetPasswordPage = () => {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
         >
           <div className="w-full max-w-sm bg-[#111827] border border-gray-800 rounded-2xl p-8 text-center shadow-2xl">
+
             <div className="mx-auto mb-5 w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -336,7 +383,9 @@ const ResetPasswordPage = () => {
 
             <p className="text-gray-400 text-sm">
               Redirecting to login page in{" "}
-              <span className="text-white font-semibold">{countdown}</span>{" "}
+              <span className="text-white font-semibold">
+                {countdown}
+              </span>{" "}
               second{countdown === 1 ? "" : "s"}...
             </p>
 
