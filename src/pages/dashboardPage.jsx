@@ -1774,6 +1774,7 @@ import { getPriorities } from "../api/priorities.js";
 import { getEmployees } from "../api/employees.js";
 import { tokenStorage } from "../utils/tokenStorage";
 import Skeleton from "../components/Skeleton";
+import NotificationBell from "../components/notifications/NotificationBell";
 
 /* =========================
    HELPERS
@@ -2176,7 +2177,7 @@ export default function Dashboard() {
 
   // ----- UI state -----
   const [search, setSearch] = useState("");
-  const [showNotifications, setShowNotifications] = useState(false);
+  // const [showNotifications, setShowNotifications] = useState(false);
   const [modal, setModal] = useState(null);
 
   const openTicket = (id) => setModal({ type: "ticket", id });
@@ -2645,118 +2646,41 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1400px] text-[#f3f5fb]">
-      {/* Top bar: search box + notifications bell */}
-      <header className="mb-6 flex min-w-0 items-center gap-2 sm:gap-3">
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#202943] bg-[#111b32] px-3.5 py-3 transition focus-within:border-[#536df5]">
-          <span
-            className="shrink-0 text-lg text-slate-500"
-            aria-hidden="true"
-          >
-            ⌕
-          </span>
+     
 
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search tickets, projects, people..."
-            className="w-full min-w-0 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-            aria-label="Search tickets, projects and people"
-          />
+{/* Top bar: search box + notifications bell */}
+<header className="mb-6 flex min-w-0 items-center gap-2 sm:gap-3">
+  <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#202943] bg-[#111b32] px-3.5 py-3 transition focus-within:border-[#536df5]">
+    <span
+      className="shrink-0 text-lg text-slate-500"
+      aria-hidden="true"
+    >
+      ⌕
+    </span>
 
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="shrink-0 text-xs text-slate-400 hover:text-white"
-              aria-label="Clear search"
-            >
-              ✕
-            </button>
-          )}
-        </label>
+    <input
+      value={search}
+      onChange={(event) => setSearch(event.target.value)}
+      placeholder="Search tickets, projects, people..."
+      className="w-full min-w-0 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+      aria-label="Search tickets, projects and people"
+    />
 
-        {/* Notifications */}
-        <div className="relative flex shrink-0 items-center">
-          <button
-            type="button"
-            onClick={() =>
-              setShowNotifications((previous) => !previous)
-            }
-            aria-label="Notifications"
-            aria-expanded={showNotifications}
-            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#202943] bg-[#111b32] text-slate-300 transition hover:bg-[#1a2743] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              className="h-5 w-5"
-              aria-hidden="true"
-            >
-              <path
-                d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M13.7 21a2 2 0 0 1-3.4 0"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+    {search && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="shrink-0 text-xs text-slate-400 hover:text-white"
+        aria-label="Clear search"
+      >
+        ✕
+      </button>
+    )}
+  </label>
 
-            {overdueCount > 0 && (
-              <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border-2 border-[#111b32] bg-rose-500" />
-            )}
-          </button>
+  <NotificationBell />
+</header>
 
-          {showNotifications && (
-            <>
-              <button
-                type="button"
-                aria-label="Close notifications"
-                onClick={() => setShowNotifications(false)}
-                className="fixed inset-0 z-20 cursor-default"
-              />
-
-              <div className="absolute right-0 top-14 z-30 w-[min(320px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#283552] bg-[#111b32] shadow-xl">
-                <div className="flex items-center justify-between gap-2 border-b border-[#202943] px-4 py-3">
-                  <p className="text-sm font-semibold">Notifications</p>
-
-                  {overdueCount > 0 && (
-                    <span className="rounded-md bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
-                      1 new
-                    </span>
-                  )}
-                </div>
-
-                {overdueCount > 0 ? (
-                  <div className="flex items-start gap-3 px-4 py-3">
-                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-rose-400" />
-
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-slate-100">
-                        {overdueCount} overdue{" "}
-                        {overdueCount === 1 ? "ticket" : "tickets"}
-                      </p>
-
-                      <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
-                        These tickets are past their due date and need
-                        attention.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="px-4 py-6 text-center text-xs text-slate-400">
-                    You're all caught up.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </header>
 
       {/* Page title and totals */}
       <section className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
