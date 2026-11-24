@@ -376,6 +376,7 @@ export default function TicketsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketToDelete, setTicketToDelete] = useState(null);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -668,15 +669,18 @@ const loadData = async (showLoader = true) => {
     }
   };
 
-  const handleDeleteTicket = async (ticket) => {
-    const ticketId = getTicketId(ticket);
+  const openDeleteModal = (ticket) => {
+    setPageError("");
+    setTicketToDelete(ticket);
+  };
+
+  const handleDeleteTicket = async () => {
+    if (!ticketToDelete) return;
+
+    const ticketId = getTicketId(ticketToDelete);
 
     if (ticketId == null || ticketId === "") {
       setPageError("Ticket ID is missing.");
-      return;
-    }
-
-    if (!window.confirm(`Delete "${ticket.title || "this ticket"}"?`)) {
       return;
     }
 
@@ -694,6 +698,7 @@ const loadData = async (showLoader = true) => {
       );
 
       setSelectedTicket(null);
+      setTicketToDelete(null);
       setSuccessMessage("Ticket deleted successfully.");
     } catch (error) {
       setPageError(getErrorMessage(error));
@@ -767,6 +772,99 @@ const loadData = async (showLoader = true) => {
                 className="mb-4 rounded-xl border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300"
               >
                 {successMessage}
+              </div>
+            )}
+
+            {/* CUSTOM DELETE CONFIRMATION MODAL */}
+            {ticketToDelete && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-[2px]">
+                <div
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby="delete-modal-title"
+                  aria-describedby="delete-modal-description"
+                  className="w-full max-w-xl rounded-2xl border border-[#263b60] bg-[#0b1428] p-6 shadow-2xl sm:p-7"
+                >
+                  {/* MODAL HEADER */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2
+                        id="delete-modal-title"
+                        className="text-xl font-semibold tracking-tight text-white"
+                      >
+                        Delete ticket?
+                      </h2>
+                      <p className="mt-1.5 text-sm text-slate-400">
+                        This can't be undone.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={deletingId !== null}
+                      onClick={() => {
+                        setTicketToDelete(null);
+                        setPageError("");
+                      }}
+                      aria-label="Close delete confirmation"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#263b60] text-slate-400 transition hover:bg-[#17233b] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M18 6 6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* MODAL MESSAGE */}
+                  <p
+                    id="delete-modal-description"
+                    className="mt-6 text-base leading-6 text-slate-300"
+                  >
+                    <span className="font-semibold text-white">
+                      {ticketToDelete.title || "Untitled ticket"}
+                    </span>{" "}
+                    will be permanently removed for everyone in your organization.
+                  </p>
+
+                  {pageError && (
+                    <p role="alert" className="mt-3 text-sm text-rose-400">
+                      {pageError}
+                    </p>
+                  )}
+
+                  {/* MODAL ACTIONS */}
+                  <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      disabled={deletingId !== null}
+                      onClick={() => {
+                        setTicketToDelete(null);
+                        setPageError("");
+                      }}
+                      className="rounded-xl border border-[#344766] px-6 py-3 text-sm font-semibold text-slate-300 transition hover:bg-[#17233b] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={deletingId !== null}
+                      onClick={handleDeleteTicket}
+                      className="rounded-xl bg-[#f00046] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#d90040] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingId !== null ? "Deleting..." : "Delete ticket"}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1006,7 +1104,7 @@ const loadData = async (showLoader = true) => {
                             <button
                               type="button"
                               disabled={deletingId === ticketId}
-                              onClick={() => handleDeleteTicket(ticket)}
+                              onClick={() => openDeleteModal(ticket)}
                               title="Delete ticket"
                               aria-label="Delete ticket"
                               className={deleteButtonClass}
@@ -1108,7 +1206,7 @@ const loadData = async (showLoader = true) => {
                                   <button
                                     type="button"
                                     disabled={deletingId === ticketId}
-                                    onClick={() => handleDeleteTicket(ticket)}
+                                    onClick={() => openDeleteModal(ticket)}
                                     title="Delete ticket"
                                     aria-label="Delete ticket"
                                     className={deleteButtonClass}
