@@ -4,9 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { tokenStorage } from "../utils/tokenStorage";
 import Skeleton from "../components/Skeleton";
 import { getProjectStatuses } from "../api/projectStatus";
+import { workspaceStore } from "../services/workspaceStore";
+import { clearAxiosGetCache } from "../api/axiosInstance";
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const EMPLOYEES_PATH = "/api/employees";
 const PROJECTS_PATH = "/api/projects";
 const UPDATE_METHOD = "PUT";
 
@@ -128,27 +129,6 @@ const SORTS = [
   { value: "name", label: "Name A–Z" },
 ];
 
-const findList = (value, preferredKeys = []) => {
-  if (Array.isArray(value)) {
-    return value.every((item) => item && typeof item === "object")
-      ? value
-      : [];
-  }
-
-  if (!value || typeof value !== "object") return [];
-
-  for (const key of preferredKeys) {
-    if (Array.isArray(value[key])) return findList(value[key]);
-  }
-
-  for (const key of Object.keys(value)) {
-    const found = findList(value[key], preferredKeys);
-    if (found.length) return found;
-  }
-
-  return [];
-};
-
 const messageFrom = (body, status, fallback) => {
   let message =
     body?.message ||
@@ -212,10 +192,9 @@ const toProject = (project, statuses = []) => {
     name: project.name ?? project.project_name ?? "Untitled project",
     description: project.description ?? "",
     createdAt: project.created_at ?? project.createdAt ?? null,
-    status: matchedStatus?.name || normalizeStatus(
-      rawStatus || rawStatusId,
-      statuses
-    ),
+    status:
+      matchedStatus?.name ||
+      normalizeStatus(rawStatus || rawStatusId, statuses),
     statusId: matchedStatus?.status_id || rawStatusId,
     members: Array.isArray(rawMembers) ? rawMembers : [],
   };
@@ -530,7 +509,8 @@ export default function Projects() {
   const me = useMemo(() => currentUser(), []);
   const isAdmin = me?.role === "ADMIN";
 
-  const [projects, setProjects] = useState([]);
+  // Raw API projects. The display list ("projects") is derived below.
+  const [rawProjects, setRawProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -542,6 +522,13 @@ export default function Projects() {
   const [statuses, setStatuses] = useState([]);
   const [statusesLoading, setStatusesLoading] = useState(true);
   const [statusesError, setStatusesError] = useState("");
+
+  // Projects with status names resolved. Updates automatically when either
+  // the project list or the status list changes, so load order doesn't matter.
+  const projects = useMemo(
+    () => rawProjects.map((project) => toProject(project, statuses)),
+    [rawProjects, statuses]
+  );
 
   const [search, setSearch] = useState("");
   const [lookupId, setLookupId] = useState("");
@@ -603,112 +590,73 @@ export default function Projects() {
   /* ---------- LOAD PROJECTS ---------- */
 
   const loadProjects = useCallback(
-    async (statusList = statuses) => {
+    async ({ force = false } = {}) => {
       setLoading(true);
       setLoadError("");
 
       try {
-        const res = await fetchWithTimeout(`${API}${PROJECTS_PATH}`, {
-          headers: authHeaders(),
-        });
-
-        if (res.status === 401) {
+        const data = await workspaceStore.loadProjects({ force });
+        setRawProjects(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (error?.response?.status === 401) {
           handleExpired();
           return;
         }
 
-        const body = await res.json().catch(() => ({}));
-
-        if (!res.ok || body.success === false) {
-          throw new Error(
-            messageFrom(body, res.status, "Could not load projects")
-          );
-        }
-
-        setProjects(
-          findList(body, ["projects", "items", "rows"]).map((project) =>
-            toProject(project, statusList)
-          )
-        );
-      } catch (error) {
-        setLoadError(error.message || "Something went wrong.");
+        setLoadError(error?.message || "Could not load projects.");
       } finally {
         setLoading(false);
       }
     },
-    [handleExpired, statuses]
+    [handleExpired]
   );
 
   /* ---------- LOAD EMPLOYEES ---------- */
 
-  const loadEmployees = useCallback(async () => {
-    setEmployeesLoading(true);
-    setEmployeesError("");
+  const loadEmployees = useCallback(
+    async ({ force = false } = {}) => {
+      setEmployeesLoading(true);
+      setEmployeesError("");
 
-    try {
-      const res = await fetchWithTimeout(`${API}${EMPLOYEES_PATH}`, {
-        headers: authHeaders(),
-      });
+      try {
+        const data = await workspaceStore.loadEmployees({ force });
+        const orgId = currentUser()?.orgId;
 
-      if (res.status === 401) {
-        handleExpired();
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-
-      if (!res.ok || body.success === false) {
-        throw new Error(
-          messageFrom(body, res.status, "Could not load employees")
+        setEmployees(
+          (Array.isArray(data) ? data : [])
+            .map(toEmployee)
+            .filter((e) => e.id)
+            .filter(
+              (e) =>
+                !orgId || !e.orgId || String(e.orgId) === String(orgId)
+            )
         );
+      } catch (error) {
+        if (error?.response?.status === 401) {
+          handleExpired();
+          return;
+        }
+
+        setEmployeesError(error?.message || "Could not load employees.");
+      } finally {
+        setEmployeesLoading(false);
       }
+    },
+    [handleExpired]
+  );
 
-      const orgId = currentUser()?.orgId;
-
-      setEmployees(
-        findList(body, ["employees", "users", "members", "items", "rows"])
-          .map(toEmployee)
-          .filter((e) => e.id)
-          .filter((e) => !orgId || !e.orgId || e.orgId === orgId)
-      );
-    } catch (error) {
-      setEmployeesError(error.message || "Could not load employees.");
-    } finally {
-      setEmployeesLoading(false);
-    }
-  }, [handleExpired]);
-
-  /* ---------- INITIAL LOAD ---------- */
+  /* ---------- INITIAL LOAD (all three start together) ---------- */
 
   useEffect(() => {
-    let cancelled = false;
+    loadStatuses();
+    loadProjects();
+    loadEmployees();
+  }, [loadStatuses, loadProjects, loadEmployees]);
 
-    const initialize = async () => {
-      const statusList = await loadStatuses();
-
-      if (cancelled) return;
-
-      await Promise.all([
-        loadProjects(statusList),
-        loadEmployees(),
-      ]);
-    };
-
-    initialize();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadStatuses, loadEmployees]);
-
-  /* ---------- REMAP PROJECT STATUSES ---------- */
+  /* ---------- KEEP OPEN MODAL IN SYNC WITH STATUSES ---------- */
 
   useEffect(() => {
     if (!statuses.length) return;
-
-    setProjects((current) =>
-      current.map((project) => toProject(project, statuses))
-    );
 
     setModal((current) => {
       if (!current?.project) return current;
@@ -813,44 +761,22 @@ export default function Projects() {
     setModal({ type: "create" });
   };
 
-  // const openEdit = (project) => {
-  //   const matchedStatus = statuses.find(
-  //     (item) =>
-  //       item.status_id === project.statusId ||
-  //       normalizeKey(item.name) === normalizeKey(project.status)
-  //   );
+  const openEdit = (project) => {
+    const matchedStatus = statuses.find(
+      (item) =>
+        item.status_id === project.statusId ||
+        normalizeKey(item.name) === normalizeKey(project.status)
+    );
 
-  //   setName(project.name);
-  //   setDescription(project.description);
-  //   setStatusId(matchedStatus?.status_id || project.statusId || "");
-  //   setSelectedIds(project.members.map(memberId).filter(Boolean));
-  //   setFormError("");
-  //   setSuccess("");
-  //   setModal({ type: "edit", project });
-  // };
-const openEdit = (project) => {
-  const matchedStatus = statuses.find(
-    (item) =>
-      item.status_id === project.statusId ||
-      normalizeKey(item.name) === normalizeKey(project.status)
-  );
+    setName(project.name);
+    setDescription(project.description);
+    setStatusId(matchedStatus?.status_id || project.statusId || "");
+    setSelectedIds(project.members.map(memberId).filter(Boolean));
+    setFormError("");
+    setSuccess("");
+    setModal({ type: "edit", project });
+  };
 
-  setName(project.name);
-  setDescription(project.description);
-
-  // Set the existing project's status ID
-  setStatusId(
-    matchedStatus?.status_id ||
-    project.statusId ||
-    ""
-  );
-
-  setSelectedIds(project.members.map(memberId).filter(Boolean));
-  setFormError("");
-  setSuccess("");
-
-  setModal({ type: "edit", project });
-};
   const openDelete = (project) => {
     setFormError("");
     setSuccess("");
@@ -873,154 +799,89 @@ const openEdit = (project) => {
     fetchProjectById(id);
   };
 
+  /* ---------- REFRESH AFTER CHANGES ---------- */
+
+  const refreshAfterChange = async () => {
+    workspaceStore.invalidate(["projects", "dashboard"]);
+    clearAxiosGetCache();
+    await loadProjects({ force: true });
+  };
+
   /* ---------- CREATE / UPDATE ---------- */
 
-  // const submitForm = async (event) => {
-  //   event.preventDefault();
-
-  //   if (!isAdmin) return;
-
-  //   const cleanName = name.trim();
-
-  //   if (cleanName.length < 2) {
-  //     setFormError("Please enter a valid project name.");
-  //     return;
-  //   }
-
-  //   if (!statusId) {
-  //     setFormError("Please select a project status.");
-  //     return;
-  //   }
-
-  //   const editing = modal?.type === "edit";
-
-  //   setSaving(true);
-  //   setFormError("");
-
-  //   try {
-  //     const res = await fetchWithTimeout(
-  //       editing
-  //         ? `${API}${PROJECTS_PATH}/${encodeURIComponent(modal.project.id)}`
-  //         : `${API}${PROJECTS_PATH}`,
-  //       {
-  //         method: editing ? UPDATE_METHOD : "POST",
-  //         headers: authHeaders(),
-  //         body: JSON.stringify({
-  //           name: cleanName,
-  //           description: description.trim(),
-  //           member_ids: selectedIds,
-  //           status_id: statusId,
-  //         }),
-  //       }
-  //     );
-
-  //     if (res.status === 401) {
-  //       handleExpired();
-  //       return;
-  //     }
-
-  //     const body = await res.json().catch(() => ({}));
-
-  //     if (!res.ok || body.success === false) {
-  //       throw new Error(
-  //         messageFrom(
-  //           body,
-  //           res.status,
-  //           editing
-  //             ? "Could not update project"
-  //             : "Could not create project"
-  //         )
-  //       );
-  //     }
-
-  //     setSuccess(
-  //       body.message ||
-  //         `Project "${cleanName}" ${editing ? "updated" : "created"}.`
-  //     );
-
-  //     closeModal();
-  //     await loadProjects();
-  //   } catch (error) {
-  //     setFormError(error.message || "Something went wrong.");
-  //   } finally {
-  //     setSaving(false);
-  //   }
-  // };
   const submitForm = async (event) => {
-  event.preventDefault();
+    event.preventDefault();
 
-  if (!isAdmin) return;
+    if (!isAdmin) return;
 
-  const cleanName = name.trim();
+    const cleanName = name.trim();
 
-  if (cleanName.length < 2) {
-    setFormError("Please enter a valid project name.");
-    return;
-  }
-
-  if (!statusId) {
-    setFormError("Please select a project status.");
-    return;
-  }
-
-  const editing = modal?.type === "edit";
-
-  setSaving(true);
-  setFormError("");
-
-  try {
-    const payload = {
-      name: cleanName,
-      description: description.trim(),
-      member_ids: selectedIds,
-      status_id: statusId,
-    };
-
-    const res = await fetchWithTimeout(
-      editing
-        ? `${API}${PROJECTS_PATH}/${encodeURIComponent(modal.project.id)}`
-        : `${API}${PROJECTS_PATH}`,
-      {
-        method: editing ? UPDATE_METHOD : "POST",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (res.status === 401) {
-      handleExpired();
+    if (cleanName.length < 2) {
+      setFormError("Please enter a valid project name.");
       return;
     }
 
-    const body = await res.json().catch(() => ({}));
-
-    if (!res.ok || body.success === false) {
-      throw new Error(
-        messageFrom(
-          body,
-          res.status,
-          editing
-            ? "Could not update project"
-            : "Could not create project"
-        )
-      );
+    if (!statusId) {
+      setFormError("Please select a project status.");
+      return;
     }
 
-    setSuccess(
-      body.message ||
-        `Project "${cleanName}" ${editing ? "updated" : "created"}.`
-    );
+    const editing = modal?.type === "edit";
 
-    closeModal();
+    setSaving(true);
+    setFormError("");
 
-    // Fetch updated project data from backend
-    await loadProjects();
-  } catch (error) {
-    setFormError(error.message || "Something went wrong.");
-  } finally {
-    setSaving(false);
-  }
-};
+    try {
+      const payload = {
+        name: cleanName,
+        description: description.trim(),
+        member_ids: selectedIds,
+        status_id: statusId,
+      };
+
+      const res = await fetchWithTimeout(
+        editing
+          ? `${API}${PROJECTS_PATH}/${encodeURIComponent(modal.project.id)}`
+          : `${API}${PROJECTS_PATH}`,
+        {
+          method: editing ? UPDATE_METHOD : "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (res.status === 401) {
+        handleExpired();
+        return;
+      }
+
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok || body.success === false) {
+        throw new Error(
+          messageFrom(
+            body,
+            res.status,
+            editing
+              ? "Could not update project"
+              : "Could not create project"
+          )
+        );
+      }
+
+      setSuccess(
+        body.message ||
+          `Project "${cleanName}" ${editing ? "updated" : "created"}.`
+      );
+
+      closeModal();
+      await refreshAfterChange();
+    } catch (error) {
+      setFormError(error.message || "Something went wrong.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /* ---------- DELETE PROJECT ---------- */
 
@@ -1057,7 +918,7 @@ const openEdit = (project) => {
       );
 
       closeModal();
-      await loadProjects();
+      await refreshAfterChange();
     } catch (error) {
       setFormError(error.message || "Could not delete project.");
     } finally {
@@ -1080,17 +941,13 @@ const openEdit = (project) => {
 
       if (
         memberFilter !== "all" &&
-        !p.members.some(
-          (m) => String(memberId(m)) === memberFilter
-        )
+        !p.members.some((m) => String(memberId(m)) === memberFilter)
       ) {
         return false;
       }
 
       if (cutoff) {
-        const t = p.createdAt
-          ? new Date(p.createdAt).getTime()
-          : NaN;
+        const t = p.createdAt ? new Date(p.createdAt).getTime() : NaN;
 
         if (Number.isNaN(t) || t < cutoff) return false;
       }
@@ -1117,14 +974,7 @@ const openEdit = (project) => {
           ? time(a) - time(b)
           : time(b) - time(a)
     );
-  }, [
-    projects,
-    query,
-    statusFilter,
-    memberFilter,
-    rangeFilter,
-    sortBy,
-  ]);
+  }, [projects, query, statusFilter, memberFilter, rangeFilter, sortBy]);
 
   const filtersActive =
     statusFilter !== "All" ||
@@ -1197,7 +1047,7 @@ const openEdit = (project) => {
 
           <button
             type="button"
-            onClick={loadStatuses}
+            onClick={() => loadStatuses()}
             className="rounded-lg border border-rose-400/40 px-3 py-1.5 font-semibold hover:bg-rose-500/10"
           >
             Reload statuses
@@ -1212,10 +1062,7 @@ const openEdit = (project) => {
         role="tablist"
         aria-label="Filter by status"
       >
-        {[
-          "All",
-          ...statuses.map((item) => item.name),
-        ].map((value) => {
+        {["All", ...statuses.map((item) => item.name)].map((value) => {
           const active = statusFilter === value;
 
           const chipColor = active
@@ -1373,7 +1220,7 @@ const openEdit = (project) => {
 
           <button
             type="button"
-            onClick={() => loadProjects()}
+            onClick={() => loadProjects({ force: true })}
             className="rounded-lg border border-rose-400/40 px-3 py-1.5 font-semibold hover:bg-rose-500/10"
           >
             Try again
@@ -1638,26 +1485,28 @@ const openEdit = (project) => {
               <div className="relative">
                 <select
                   id="project-status"
+                  name="status_id"
                   value={statusId}
                   onChange={(e) => {
                     setStatusId(e.target.value);
                     setFormError("");
                   }}
                   disabled={statusesLoading || statuses.length === 0}
-                  className={`${selectClasses} disabled:cursor-not-allowed disabled:opacity-60`}
+                  className={`${selectClasses} cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
                 >
-                  <option value="">
-                    {statusesLoading
-                      ? "Loading statuses..."
-                      : statuses.length === 0
-                        ? "No statuses available"
-                        : "Select project status"}
-                  </option>
+                  {statuses.length === 0 && (
+                    <option value="">
+                      {statusesLoading
+                        ? "Loading statuses..."
+                        : "No statuses available"}
+                    </option>
+                  )}
 
                   {statuses.map((item) => (
                     <option
                       key={item.status_id}
-                      value={item.status_id}
+                      value={String(item.status_id)}
+                      className="bg-[#0f1729] text-white"
                     >
                       {item.name}
                     </option>
@@ -1672,7 +1521,7 @@ const openEdit = (project) => {
               {statusesError && (
                 <button
                   type="button"
-                  onClick={loadStatuses}
+                  onClick={() => loadStatuses()}
                   className="mt-2 text-xs font-semibold text-blue-400 hover:text-blue-300"
                 >
                   Reload statuses
@@ -1693,7 +1542,7 @@ const openEdit = (project) => {
             {employeesError && (
               <button
                 type="button"
-                onClick={loadEmployees}
+                onClick={() => loadEmployees({ force: true })}
                 className="text-xs font-semibold text-blue-400 hover:text-blue-300"
               >
                 Reload employee list
