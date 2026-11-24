@@ -55,10 +55,10 @@
 import axios from "axios";
 import { tokenStorage } from "../utils/tokenStorage";
 
-const baseURL = import.meta.env.VITE_API_BASE_URL;
+const baseURL = import.meta.env.BACKEND_API_BASE_URL;
 
 if (!baseURL) {
-  console.error("VITE_API_BASE_URL is missing. Check your .env file.");
+  console.error("BACKEND_API_BASE_URL is missing. Check your .env file.");
 }
 
 const axiosInstance = axios.create({

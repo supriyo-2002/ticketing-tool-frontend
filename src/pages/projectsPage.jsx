@@ -7,7 +7,7 @@ import { getProjectStatuses } from "../api/projectStatus";
 import { workspaceStore } from "../services/workspaceStore";
 import { clearAxiosGetCache } from "../api/axiosInstance";
 
-const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const API = (import.meta.env.BACKEND_API_BASE_URL || "").replace(/\/$/, "");
 const PROJECTS_PATH = "/api/projects";
 const UPDATE_METHOD = "PUT";
 
