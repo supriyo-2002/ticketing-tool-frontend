@@ -8,6 +8,7 @@ import {
   updateTicket as updateTicketAPI,
   deleteTicket,
 } from "../api/tickets.js";
+import { workspaceStore } from "../services/workspaceStore";
 import { getStatuses } from "../api/statuses.js";
 import { getPriorities } from "../api/priorities.js";
 import { getEmployees } from "../api/employees.js";
@@ -384,37 +385,61 @@ export default function TicketsPage() {
 
   const [form, setForm] = useState(initialForm);
 
-  const loadData = async (showLoader = true) => {
-    if (showLoader) setLoading(true);
-    setPageError("");
+  // const loadData = async (showLoader = true) => {
+  //   if (showLoader) setLoading(true);
+  //   setPageError("");
 
-    try {
-      const [
-        ticketResponse,
-        projectResponse,
-        statusResponse,
-        priorityResponse,
-        employeeResponse,
-      ] = await Promise.all([
-        getTickets(),
-        getProjects(),
-        getStatuses(),
-        getPriorities(),
-        getEmployees(),
+  //   try {
+  //     const [
+  //       ticketResponse,
+  //       projectResponse,
+  //       statusResponse,
+  //       priorityResponse,
+  //       employeeResponse,
+  //     ] = await Promise.all([
+  //       getTickets(),
+  //       getProjects(),
+  //       getStatuses(),
+  //       getPriorities(),
+  //       getEmployees(),
+  //     ]);
+
+  //     setTickets(getArray(ticketResponse, ["tickets"]));
+  //     setProjects(getArray(projectResponse, ["projects"]));
+  //     setStatuses(getArray(statusResponse, ["statuses"]));
+  //     setPriorities(getArray(priorityResponse, ["priorities"]));
+  //     setEmployees(getArray(employeeResponse, ["employees"]));
+  //   } catch (error) {
+  //     setPageError(getErrorMessage(error));
+  //   } finally {
+  //     if (showLoader) setLoading(false);
+  //   }
+  // };
+const loadData = async (showLoader = true) => {
+  if (showLoader) setLoading(true);
+  setPageError("");
+
+  try {
+    const [ticketList, projectList, statusList, priorityList, employeeList] =
+      await Promise.all([
+        workspaceStore.loadTickets(),
+        workspaceStore.loadProjects(),
+        workspaceStore.loadStatuses(),
+        workspaceStore.loadPriorities(),
+        workspaceStore.loadEmployees(),
       ]);
 
-      setTickets(getArray(ticketResponse, ["tickets"]));
-      setProjects(getArray(projectResponse, ["projects"]));
-      setStatuses(getArray(statusResponse, ["statuses"]));
-      setPriorities(getArray(priorityResponse, ["priorities"]));
-      setEmployees(getArray(employeeResponse, ["employees"]));
-    } catch (error) {
-      setPageError(getErrorMessage(error));
-    } finally {
-      if (showLoader) setLoading(false);
-    }
-  };
-
+    setTickets(ticketList);
+    setProjects(projectList);
+    setStatuses(statusList);
+    setPriorities(priorityList);
+    setEmployees(employeeList);
+  } catch (error) {
+    setPageError(getErrorMessage(error));
+  } finally {
+    if (showLoader) setLoading(false);
+  }
+};
   useEffect(() => {
     loadData();
   }, []);

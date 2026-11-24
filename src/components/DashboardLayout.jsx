@@ -17,14 +17,19 @@
 // }
 
 
-import { useState } from "react";
+// import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import { workspaceStore } from "../services/workspaceStore";
 
 export default function DashboardLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  useEffect(() => {
+    workspaceStore.prefetchLookups();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#080d18] text-[#f3f5fb]">
