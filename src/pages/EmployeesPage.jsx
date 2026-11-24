@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getEmployees } from "../api/employees";
-// ======================================
-// CONFIG
-// ======================================
-// Where your login code saves the logged-in user (used to stop an admin
-// from deactivating themselves). Adjust if your project uses another key.
+import { getEmployees, deactivateEmployee } from "../api/employees";
+import { tokenStorage } from "../utils/tokenStorage";
+
 const USER_KEY = "user";
 
 const roleStyles = {
@@ -22,8 +19,10 @@ const formatRole = (role = "") =>
 
 const formatDate = (value) => {
   if (!value) return "-";
+
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "-";
+
   return d.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -41,13 +40,60 @@ const initials = (name = "") =>
 
 const getCurrentUserId = () => {
   try {
+    const fromStorage = tokenStorage.getUser?.();
+    if (fromStorage) {
+      return fromStorage.user_id || fromStorage.user?.user_id || "";
+    }
+  } catch {
+    /* fall through */
+  }
+
+  try {
     const raw = localStorage.getItem(USER_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
+
     return parsed?.user_id || parsed?.user?.user_id || "";
   } catch {
     return "";
   }
 };
+
+// ======================================
+// Small shared pieces
+// ======================================
+function Avatar({ name }) {
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#f59e0b] to-[#d97706] text-[11px] font-bold text-white">
+      {initials(name)}
+    </div>
+  );
+}
+
+function RolePill({ role }) {
+  return (
+    <span
+      className={`inline-block whitespace-nowrap rounded-md border px-2.5 py-1 text-[11px] font-semibold ${
+        roleStyles[role] || roleStyles.EMPLOYEE
+      }`}
+    >
+      {formatRole(role)}
+    </span>
+  );
+}
+
+function StatusPill({ active }) {
+  return (
+    <span
+      className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+        active
+          ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+          : "border-red-500/30 bg-red-500/15 text-red-300"
+      }`}
+    >
+      {active ? "Active" : "Deactivated"}
+    </span>
+  );
+}
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
@@ -64,18 +110,22 @@ export default function EmployeesPage() {
 
   const currentUserId = getCurrentUserId();
 
+  // Load employees
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError("");
+
     try {
-      const list = await getEmployees();
-      setEmployees(list);
+      // getEmployees returns { success, message, count, data: [...] }
+      const res = await getEmployees();
+      setEmployees(Array.isArray(res?.data) ? res.data : []);
     } catch (err) {
       console.error("Load employees error:", err);
+
       setError(
-        err.status === 403
-          ? "Only admins can view employees."
-          : err.message || "Unable to load employees."
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to load employees."
       );
     } finally {
       setLoading(false);
@@ -86,10 +136,19 @@ export default function EmployeesPage() {
     loadEmployees();
   }, [loadEmployees]);
 
-  const isActive = (e) => String(e.account_status).toUpperCase() === "ACTIVE";
+  const isActive = (employee) =>
+    String(employee.account_status).toUpperCase() === "ACTIVE";
 
+  // Only active people with the EMPLOYEE role (and not yourself) can be deactivated
+  const canDeactivate = (employee) =>
+    isActive(employee) &&
+    employee.user_id !== currentUserId &&
+    employee.role === "EMPLOYEE";
+
+  // Statistics
   const stats = useMemo(() => {
     const active = employees.filter(isActive).length;
+
     return {
       total: employees.length,
       active,
@@ -97,17 +156,25 @@ export default function EmployeesPage() {
     };
   }, [employees]);
 
+  // Search and filters
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return employees.filter((e) => {
+
+    return employees.filter((employee) => {
       const matchesSearch =
         !q ||
-        e.name?.toLowerCase().includes(q) ||
-        e.email?.toLowerCase().includes(q);
-      const matchesRole = roleFilter === "ALL" || e.role === roleFilter;
+        employee.name?.toLowerCase().includes(q) ||
+        employee.email?.toLowerCase().includes(q);
+
+      const matchesRole =
+        roleFilter === "ALL" || employee.role === roleFilter;
+
       const matchesStatus =
         statusFilter === "ALL" ||
-        (statusFilter === "ACTIVE" ? isActive(e) : !isActive(e));
+        (statusFilter === "ACTIVE"
+          ? isActive(employee)
+          : !isActive(employee));
+
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [employees, search, roleFilter, statusFilter]);
@@ -117,30 +184,82 @@ export default function EmployeesPage() {
     [employees]
   );
 
+  // Deactivate employee
   const handleConfirmDeactivate = async () => {
-     setConfirmTarget(null);
-  setError(
-    "Employee deactivation is not connected yet. Please provide the deactivation API."
-  );
+    if (!confirmTarget) return;
+
+    const employee = confirmTarget;
+
+    setBusyId(employee.user_id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await deactivateEmployee(employee.user_id);
+
+      setConfirmTarget(null);
+
+      setSuccess(
+        `${employee.name || employee.email} has been deactivated successfully.`
+      );
+
+      await loadEmployees();
+    } catch (err) {
+      console.error("Deactivate error:", err);
+
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to deactivate this employee."
+      );
+
+      setConfirmTarget(null);
+    } finally {
+      setBusyId("");
+    }
   };
 
+  const renderAction = (employee) =>
+    canDeactivate(employee) ? (
+      <button
+        type="button"
+        disabled={busyId === employee.user_id}
+        onClick={() => setConfirmTarget(employee)}
+        className="whitespace-nowrap rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+      >
+        {busyId === employee.user_id ? "Working..." : "Deactivate"}
+      </button>
+    ) : (
+      <span className="text-xs text-[#6b7396]">-</span>
+    );
+
+  const emptyMessage =
+    employees.length === 0
+      ? "No employees found in your organization."
+      : "No employees match your filters.";
+
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-8 text-[#f3f5fb]">
+    // No extra padding here: DashboardLayout already pads the content area
+    <div className="mx-0 w-full min-w-0 max-w-none text-[#f3f5fb]">
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Employees</h1>
-          <p className="mt-1 text-xs text-[#8a94b8]">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+            Employees
+          </h1>
+
+          <p className="mt-1 text-xs leading-relaxed text-[#8a94b8] sm:text-sm">
             People in your organization. Admins can deactivate access when
             someone leaves.
           </p>
         </div>
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300">
+
+        <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300">
           🔒 Admin only
         </span>
       </div>
 
-      {/* Banners */}
+      {/* Success message */}
       {success && (
         <div
           role="status"
@@ -149,12 +268,15 @@ export default function EmployeesPage() {
           {success}
         </div>
       )}
+
+      {/* Error message */}
       {error && (
         <div
           role="alert"
-          className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300"
         >
-          <span>{error}</span>
+          <span className="min-w-0 break-words">{error}</span>
+
           <button
             type="button"
             onClick={loadEmployees}
@@ -165,8 +287,8 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      {/* Statistics: always 3 across, compact on small screens */}
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
         {[
           ["Total", stats.total, "text-[#f3f5fb]"],
           ["Active", stats.active, "text-emerald-300"],
@@ -174,39 +296,47 @@ export default function EmployeesPage() {
         ].map(([label, value, color]) => (
           <div
             key={label}
-            className="rounded-xl border border-[#1d2545] bg-[#0d1326] px-4 py-3"
+            className="min-w-0 rounded-xl border border-[#1d2545] bg-[#0d1326] px-3 py-2.5 sm:px-5 sm:py-4"
           >
-            <div className="text-[11px] text-[#6b7396]">{label}</div>
-            <div className={`text-2xl font-bold ${color}`}>{value}</div>
+            <div className="truncate text-[11px] text-[#6b7396] sm:text-xs">
+              {label}
+            </div>
+
+            <div className={`mt-0.5 text-xl font-bold sm:text-2xl ${color}`}>
+              {value}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[#1d2545] bg-[#0d1326] p-3 sm:flex-row">
+      {/* Search and filters */}
+      <div className="mb-4 grid min-w-0 grid-cols-2 gap-3 rounded-xl border border-[#1d2545] bg-[#0d1326] p-3 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or email"
-          className="flex-1 rounded-lg border border-[#2a3358] bg-[#161d33] px-3.5 py-2.5 text-sm text-[#f3f5fb] placeholder-[#6b7396] outline-none transition focus:border-[#5b6ef5] focus:ring-1 focus:ring-[#5b6ef5]"
+          className="col-span-2 w-full min-w-0 rounded-lg border border-[#2a3358] bg-[#161d33] px-3.5 py-2.5 text-sm text-[#f3f5fb] placeholder-[#6b7396] outline-none transition focus:border-[#5b6ef5] focus:ring-1 focus:ring-[#5b6ef5] lg:col-span-1"
         />
+
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="rounded-lg border border-[#2a3358] bg-[#161d33] px-3 py-2.5 text-sm text-[#f3f5fb] outline-none focus:border-[#5b6ef5]"
+          className="w-full min-w-0 rounded-lg border border-[#2a3358] bg-[#161d33] px-3 py-2.5 text-sm text-[#f3f5fb] outline-none focus:border-[#5b6ef5]"
         >
           <option value="ALL">All roles</option>
-          {roleOptions.map((r) => (
-            <option key={r} value={r}>
-              {formatRole(r)}
+
+          {roleOptions.map((role) => (
+            <option key={role} value={role}>
+              {formatRole(role)}
             </option>
           ))}
         </select>
+
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-[#2a3358] bg-[#161d33] px-3 py-2.5 text-sm text-[#f3f5fb] outline-none focus:border-[#5b6ef5]"
+          className="w-full min-w-0 rounded-lg border border-[#2a3358] bg-[#161d33] px-3 py-2.5 text-sm text-[#f3f5fb] outline-none focus:border-[#5b6ef5]"
         >
           <option value="ALL">All status</option>
           <option value="ACTIVE">Active</option>
@@ -214,119 +344,176 @@ export default function EmployeesPage() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-[#1d2545] bg-[#0d1326]">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#1d2545] text-[11px] uppercase tracking-wider text-[#6b7396]">
-                <th className="px-5 py-3.5 font-semibold">Member</th>
-                <th className="px-5 py-3.5 font-semibold">Email</th>
-                <th className="px-5 py-3.5 font-semibold">Role</th>
-                <th className="px-5 py-3.5 font-semibold">Status</th>
-                <th className="px-5 py-3.5 font-semibold">Joined</th>
-                <th className="px-5 py-3.5 text-right font-semibold">Action</th>
+      {/* DESKTOP / TABLET: fixed-width table, no sideways scrolling */}
+      <div className="hidden w-full min-w-0 overflow-hidden rounded-xl border border-[#1d2545] bg-[#0d1326] md:block">
+        <table className="w-full table-fixed text-left text-sm">
+          <thead>
+            <tr className="border-b border-[#1d2545] text-[11px] uppercase tracking-wider text-[#6b7396]">
+              <th className="w-[26%] px-4 py-3 font-semibold">Member</th>
+              <th className="w-[28%] px-4 py-3 font-semibold">Email</th>
+              <th className="w-[15%] px-4 py-3 font-semibold">Role</th>
+              <th className="w-[17%] px-4 py-3 font-semibold">Status</th>
+              <th className="hidden w-[12%] px-4 py-3 font-semibold xl:table-cell">
+                Joined
+              </th>
+              <th className="px-4 py-3 text-right font-semibold">Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-5 py-10 text-center text-[#8a94b8]"
+                >
+                  Loading employees...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-[#8a94b8]">
-                    Loading employees...
-                  </td>
-                </tr>
-              )}
+            )}
 
-              {!loading && filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-[#8a94b8]">
-                    {employees.length === 0
-                      ? "No employees found in your organization."
-                      : "No employees match your filters."}
-                  </td>
-                </tr>
-              )}
+            {!loading && filtered.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-5 py-10 text-center text-[#8a94b8]"
+                >
+                  {emptyMessage}
+                </td>
+              </tr>
+            )}
 
-              {!loading &&
-                filtered.map((e) => {
-                  const active = isActive(e);
-                  const isSelf = e.user_id === currentUserId;
-                  return (
-                    <tr
-                      key={e.user_id}
-                      className="border-b border-[#1d2545] last:border-b-0 hover:bg-[#111830]"
+            {!loading &&
+              filtered.map((employee) => {
+                const active = isActive(employee);
+                const isSelf = employee.user_id === currentUserId;
+
+                return (
+                  <tr
+                    key={employee.user_id}
+                    className="border-b border-[#1d2545] last:border-b-0 hover:bg-[#111830]"
+                  >
+                    <td className="px-4 py-3.5">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar name={employee.name} />
+
+                        <span
+                          className="truncate font-semibold"
+                          title={employee.name}
+                        >
+                          {employee.name || "-"}
+                          {isSelf && (
+                            <span className="ml-1.5 text-[10px] font-medium text-[#6b7396]">
+                              (you)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td
+                      className="truncate px-4 py-3.5 text-[#aab4d4]"
+                      title={employee.email}
                     >
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#f59e0b] to-[#d97706] text-[11px] font-bold text-white">
-                            {initials(e.name)}
-                          </div>
-                          <span className="font-semibold">
-                            {e.name || "-"}
-                            {isSelf && (
-                              <span className="ml-2 text-[10px] font-medium text-[#6b7396]">
-                                (you)
-                              </span>
-                            )}
-                          </span>
+                      {employee.email}
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      <RolePill role={employee.role} />
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      <StatusPill active={active} />
+
+                      {!active && employee.deactivated_at && (
+                        <div className="mt-1 truncate text-[10px] text-[#6b7396]">
+                          since {formatDate(employee.deactivated_at)}
                         </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-[#aab4d4]">{e.email}</td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold ${
-                            roleStyles[e.role] || roleStyles.EMPLOYEE
-                          }`}
-                        >
-                          {formatRole(e.role)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                            active
-                              ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                              : "border-red-500/30 bg-red-500/15 text-red-300"
-                          }`}
-                        >
-                          {active ? "Active" : "Deactivated"}
-                        </span>
-                        {!active && e.deactivated_at && (
-                          <div className="mt-1 text-[10px] text-[#6b7396]">
-                            since {formatDate(e.deactivated_at)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-[#8a94b8]">
-                        {formatDate(e.created_at)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        {active && !isSelf ? (
-                          <button
-                            type="button"
-                            disabled={busyId === e.user_id}
-                            onClick={() => setConfirmTarget(e)}
-                            className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
-                          >
-                            {busyId === e.user_id ? "Working..." : "Deactivate"}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-[#6b7396]">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
+                      )}
+                    </td>
+
+                    <td className="hidden px-4 py-3.5 text-[#8a94b8] xl:table-cell">
+                      {formatDate(employee.created_at)}
+                    </td>
+
+                    <td className="px-4 py-3.5 text-right">
+                      {renderAction(employee)}
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
       </div>
 
+      {/* MOBILE: stacked cards */}
+      <div className="space-y-3 md:hidden">
+        {loading && (
+          <div className="rounded-xl border border-[#1d2545] bg-[#0d1326] px-4 py-8 text-center text-sm text-[#8a94b8]">
+            Loading employees...
+          </div>
+        )}
+
+        {!loading && filtered.length === 0 && (
+          <div className="rounded-xl border border-[#1d2545] bg-[#0d1326] px-4 py-8 text-center text-sm text-[#8a94b8]">
+            {emptyMessage}
+          </div>
+        )}
+
+        {!loading &&
+          filtered.map((employee) => {
+            const active = isActive(employee);
+            const isSelf = employee.user_id === currentUserId;
+
+            return (
+              <div
+                key={employee.user_id}
+                className="min-w-0 rounded-xl border border-[#1d2545] bg-[#0d1326] p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar name={employee.name} />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold">
+                      {employee.name || "-"}
+                      {isSelf && (
+                        <span className="ml-1.5 text-[10px] font-medium text-[#6b7396]">
+                          (you)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="truncate text-xs text-[#aab4d4]">
+                      {employee.email}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <RolePill role={employee.role} />
+                  <StatusPill active={active} />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#1d2545] pt-3">
+                  <span className="text-[11px] text-[#6b7396]">
+                    {!active && employee.deactivated_at
+                      ? `Deactivated ${formatDate(employee.deactivated_at)}`
+                      : `Joined ${formatDate(employee.created_at)}`}
+                  </span>
+
+                  {renderAction(employee)}
+                </div>
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Record count */}
       <p className="mt-3 text-[11px] text-[#6b7396]">
         Showing {filtered.length} of {employees.length} employees
       </p>
 
-      {/* Confirm modal */}
+      {/* Confirmation popup */}
       {confirmTarget && (
         <div
           role="dialog"
@@ -337,13 +524,16 @@ export default function EmployeesPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-xl">
               ⚠️
             </div>
+
             <h3 className="mb-2 text-lg font-bold">Deactivate employee?</h3>
-            <p className="text-sm leading-relaxed text-[#aab4d4]">
+
+            <p className="break-words text-sm leading-relaxed text-[#aab4d4]">
               <span className="font-semibold text-white">
                 {confirmTarget.name || confirmTarget.email}
               </span>{" "}
               will no longer be able to sign in or use the application.
             </p>
+
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
@@ -353,13 +543,16 @@ export default function EmployeesPage() {
               >
                 Cancel
               </button>
+
               <button
                 type="button"
                 onClick={handleConfirmDeactivate}
                 disabled={busyId === confirmTarget.user_id}
                 className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-60"
               >
-                {busyId === confirmTarget.user_id ? "Deactivating..." : "Deactivate"}
+                {busyId === confirmTarget.user_id
+                  ? "Deactivating..."
+                  : "Deactivate"}
               </button>
             </div>
           </div>
