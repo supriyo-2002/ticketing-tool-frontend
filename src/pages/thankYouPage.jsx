@@ -112,7 +112,7 @@ export default function ThankYouPage() {
     if (status !== "success") return;
 
     const timer = setTimeout(() => {
-      navigate("/", { replace: true });
+      navigate("/login", { replace: true });
     }, 5000);
 
     return () => clearTimeout(timer);

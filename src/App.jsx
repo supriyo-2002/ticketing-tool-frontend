@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Login from "./pages/loginPage.jsx";
@@ -15,6 +14,8 @@ import InvitesPage from "./pages/invitesPage";
 import ProfilePage from "./pages/profilePage.jsx";
 import ForgotPasswordPage from "./pages/forgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/resetPasswordPage.jsx";
+import LandingPage from "./pages/LandingPage";
+import EmployeesPage from "./pages/EmployeesPage.jsx";
 
 function App() {
   return (
@@ -22,7 +23,8 @@ function App() {
       <Routes>
 
         {/* Public Routes */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/accept-invite" element={<AcceptInvite />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -38,9 +40,9 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/tickets" element={<Tickets />} />
             <Route path="/invites" element={<InvitesPage />} />
+            <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/preferences" element={<Preferences />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />}/>
           </Route>
         </Route>
 
