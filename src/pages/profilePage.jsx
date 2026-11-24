@@ -8,8 +8,8 @@ import { tokenStorage } from "../utils/tokenStorage";
 
 // Base URL of the backend, read from .env (trailing slashes removed).
 const API = (
-  import.meta.env.BACKEND_API_BASE_URL ||
-  import.meta.env.BACKEND_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_URL ||
   ""
 ).replace(/\/+$/, "");
 

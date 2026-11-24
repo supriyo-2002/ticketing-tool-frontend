@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 const API_ROOT = (
-  import.meta.env.BACKEND_API_BASE_URL ||
-  import.meta.env.BACKEND_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_URL ||
   "https://ticketing-tool-backend-teal.vercel.app"
 ).replace(/\/+$/, "");
 

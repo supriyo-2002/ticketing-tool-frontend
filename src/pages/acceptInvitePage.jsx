@@ -420,7 +420,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 const API = (
-  import.meta.env.BACKEND_API_BASE_URL || ""
+  import.meta.env.VITE_API_URL || ""
 ).replace(/\/+$/, "");
 
 const inputClasses =
